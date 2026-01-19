@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import Groq from "groq-sdk";
+import { randomUUID } from "crypto";
 
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
@@ -35,7 +36,7 @@ export async function POST() {
       const { data, error } = await supabaseAdmin
         .from("suggested_contents")
         .insert({
-          article_id: `article_${Date.now()}_${Math.random()}`,
+          article_id: randomUUID(),
           headline: suggestion.headline,
           summary: suggestion.summary,
           yes_no_question: suggestion.question,
