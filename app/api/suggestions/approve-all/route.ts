@@ -69,7 +69,7 @@ export async function POST() {
         const contestIdOnchain = event.args.contestId.toString();
 
         // Save contest in DB
-        await supabaseAdmin.from("contests").insert({
+        const { error: insertError } = await supabaseAdmin.from("contests").insert({
           suggestion_id: suggestion.id,
           contest_id_onchain: contestIdOnchain,
           question: suggestion.yes_no_question,
@@ -79,11 +79,19 @@ export async function POST() {
           status: "OPEN",
         });
 
+        if (insertError) {
+          throw new Error(`Failed to insert contest: ${insertError.message}`);
+        }
+
         // Mark suggestion as used
-        await supabaseAdmin
+        const { error: updateError } = await supabaseAdmin
           .from("suggested_contents")
           .update({ status: "used" })
           .eq("id", suggestion.id);
+
+        if (updateError) {
+          throw new Error(`Failed to update suggestion: ${updateError.message}`);
+        }
 
         results.push({
           suggestionId: suggestion.id,
