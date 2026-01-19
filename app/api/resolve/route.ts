@@ -16,11 +16,11 @@ import { getContestOracle } from "@/lib/contestOracleClient";
 
 export async function POST(req: Request) {
   try {
-    const { contestId, criteria } = await req.json();
+    const { contestId, question, criteria } = await req.json();
 
-    if (!contestId || !criteria) {
+    if (!contestId || !question) {
       return NextResponse.json(
-        { error: "contestId and criteria are required" },
+        { error: "contestId and question are required" },
         { status: 400 }
       );
     }
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: criteria })
+        body: JSON.stringify({ query: criteria || question })
       }
     );
 
@@ -45,7 +45,8 @@ export async function POST(req: Request) {
     // Step 2: Agent decision + signature
     const { outcome, signature, reasoning, confidence } = await resolveWithAgent(
       contestId,
-      criteria,
+      question,
+      criteria || question,
       oracleData
     );
 
