@@ -5,17 +5,35 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, { params }: Params) {
-  const { id } = await params;
+  try {
+    const { id } = await params;
 
-  const { error } = await supabaseAdmin
-    .from("suggested_contents")
-    .update({ status: "rejected" })
-    .eq("id", id);
+    console.log(`🗑️ Rejecting suggestion: ${id}`);
 
-  if (error) {
-    console.error("Error rejecting suggestion:", error);
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+    const { error } = await supabaseAdmin
+      .from("suggested_contents")
+      .update({ status: "rejected" })
+      .eq("id", id);
+
+    if (error) {
+      console.error("Error rejecting suggestion:", error);
+      return NextResponse.json(
+        { error: error.message || "Failed to reject suggestion" }, 
+        { status: 500 }
+      );
+    }
+
+    console.log(`✅ Successfully rejected suggestion ${id}`);
+
+    return NextResponse.json({ 
+      success: true,
+      message: "Suggestion rejected successfully" 
+    });
+  } catch (error: any) {
+    console.error("❌ Reject suggestion error:", error);
+    return NextResponse.json(
+      { error: error.message || "Failed to reject suggestion" },
+      { status: 500 }
+    );
   }
-
-  return NextResponse.redirect(new URL("/suggestions", _req.url));
 }

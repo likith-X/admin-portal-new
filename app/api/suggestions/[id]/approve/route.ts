@@ -44,22 +44,39 @@ export async function POST(
     );
 
     console.log(`⏳ Waiting for transaction: ${tx.hash}`);
-    const receipt = await tx.wait();
-    console.log(`✅ Transaction confirmed: ${receipt.hash}`);
+    const receipt = await tx.wait(1); // Wait for 1 confirmation
+    console.log(`✅ Transaction confirmed in block: ${receipt.blockNumber}`);
+    console.log(`📄 Receipt logs count: ${receipt.logs.length}`);
 
     // 4. Extract contestId from event
-    const event = receipt.logs
-      .map((log: any) => {
+    console.log("🔍 Parsing transaction logs...");
+    const parsedEvents = receipt.logs
+      .map((log: any, index: number) => {
         try {
-          return oracle.interface.parseLog(log);
-        } catch {
+          const parsed = oracle.interface.parseLog(log);
+          console.log(`Log ${index}: ${parsed?.name || 'unknown'}`);
+          return parsed;
+        } catch (e) {
+          console.log(`Log ${index}: Could not parse (likely not from our contract)`);
           return null;
         }
       })
-      .find((e: any) => e?.name === "ContestCreated");
+      .filter((e: any) => e !== null);
 
-    if (!event || !event.args || !event.args.contestId) {
-      throw new Error("Failed to extract contestId from transaction receipt");
+    console.log(`📝 Found ${parsedEvents.length} parseable events`);
+    
+    const event = parsedEvents.find((e: any) => e?.name === "ContestCreated");
+
+    if (!event) {
+      console.error("❌ No ContestCreated event found in transaction");
+      console.error("Available events:", parsedEvents.map((e: any) => e?.name));
+      throw new Error("Failed to find ContestCreated event in transaction receipt");
+    }
+
+    if (!event.args || !event.args.contestId) {
+      console.error("❌ ContestCreated event found but missing contestId");
+      console.error("Event args:", event.args);
+      throw new Error("ContestCreated event is missing contestId argument");
     }
 
     const contestIdOnchain = event.args.contestId.toString();
