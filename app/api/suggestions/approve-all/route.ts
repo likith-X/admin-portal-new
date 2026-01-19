@@ -62,6 +62,10 @@ export async function POST() {
           })
           .find((e: any) => e?.name === "ContestCreated");
 
+        if (!event || !event.args || !event.args.contestId) {
+          throw new Error("Failed to extract contestId from transaction receipt");
+        }
+
         const contestIdOnchain = event.args.contestId.toString();
 
         // Save contest in DB
