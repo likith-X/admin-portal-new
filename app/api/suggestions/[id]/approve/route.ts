@@ -37,10 +37,16 @@ export async function POST(
     console.log("📡 Calling smart contract...");
     const oracle = getContestOracle();
 
+    // Get current nonce to avoid conflicts
+    const wallet = oracle.runner;
+    const nonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');
+    console.log(`🔢 Using nonce: ${nonce}`);
+
     const tx = await oracle.createContest(
       suggestion.yes_no_question,
       deadline,
-      resolutionType
+      resolutionType,
+      { nonce } // Explicitly set nonce
     );
 
     console.log(`⏳ Waiting for transaction: ${tx.hash}`);

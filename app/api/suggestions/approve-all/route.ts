@@ -31,9 +31,14 @@ export async function POST() {
     const results = [];
     const errors = [];
 
-    // 2. Create contests for each suggestion
-    for (const suggestion of suggestions) {
+    console.log(`📊 Processing ${suggestions.length} suggestions sequentially...`);
+
+    // 2. Create contests for each suggestion (SEQUENTIALLY to avoid nonce conflicts)
+    for (let i = 0; i < suggestions.length; i++) {
+      const suggestion = suggestions[i];
       try {
+        console.log(`\n[${i + 1}/${suggestions.length}] Processing: ${suggestion.yes_no_question.substring(0, 50)}...`);
+
         // Define deadline (example: +7 days from now)
         const deadline = Math.floor(
           (Date.now() + 7 * 24 * 60 * 60 * 1000) / 1000
@@ -42,14 +47,25 @@ export async function POST() {
         // ADMIN_ORACLE = 1
         const resolutionType = 1;
 
-        // Call on-chain contract
+        // Get current nonce to avoid conflicts
+        const wallet = oracle.runner;
+        const nonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');
+        console.log(`🔢 Using nonce: ${nonce}`);
+
+        // Call on-chain contract with explicit nonce
         const tx = await oracle.createContest(
           suggestion.yes_no_question,
           deadline,
-          resolutionType
+          resolutionType,
+          { nonce }
         );
 
-        const receipt = await tx.wait();
+        console.log(`⏳ Waiting for tx ${tx.hash}...`);
+        const receipt = await tx.wait(1); // Wait for 1 confirmation
+        console.log(`✅ Confirmed in block ${receipt.blockNumber}`);
+
+        // Small delay to ensure nonce increments properly
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Extract contestId from event
         const event = receipt.logs
