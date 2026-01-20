@@ -37,6 +37,14 @@ export async function POST(
     console.log("📡 Calling smart contract...");
     const oracle = getContestOracle();
 
+    if (!oracle.runner) {
+      console.error("❌ Oracle wallet not configured");
+      return NextResponse.json(
+        { error: "Smart contract signer not available" },
+        { status: 500 }
+      );
+    }
+
     // Get current nonce to avoid conflicts
     const wallet = oracle.runner;
     const nonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');

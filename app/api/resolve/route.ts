@@ -27,17 +27,66 @@ export async function POST(req: Request) {
 
     // Step 1: Fetch oracle data
     const appUrl = process.env.APP_URL || "http://localhost:3000";
-    const oracleRes = await fetch(
-      `${appUrl}/api/oracle/fetch`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query: criteria || question })
+    const queryForOracle = criteria || question;
+    
+    // Parse and validate timeout from environment variable
+    const timeoutMs = (() => {
+      const envTimeout = parseInt(process.env.ORACLE_TIMEOUT_MS || "", 10);
+      return !isNaN(envTimeout) && envTimeout > 0 ? envTimeout : 5000;
+    })();
+    
+    // Create AbortController with configurable timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    
+    let oracleRes;
+    try {
+      oracleRes = await fetch(
+        `${appUrl}/api/oracle/fetch`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: queryForOracle }),
+          signal: controller.signal
+        }
+      );
+      clearTimeout(timeoutId); // Clear timeout on successful fetch
+    } catch (fetchError: any) {
+      clearTimeout(timeoutId);
+      if (fetchError.name === 'AbortError') {
+        throw new Error(`Oracle fetch timed out after 5s for query: "${queryForOracle.substring(0, 100)}..."`);
       }
-    );
+      throw new Error(`Oracle fetch failed for query "${queryForOracle.substring(0, 100)}...": ${fetchError.message}`);
+    }
 
     if (!oracleRes.ok) {
-      throw new Error("Failed to fetch oracle data");
+      let errorBody = "";
+      try {
+        const contentType = oracleRes.headers.get("content-type");
+        const isTextContent = contentType?.includes("application/json") || 
+                              contentType?.includes("text/") ||
+                              contentType?.includes("application/xml");
+        
+        if (!isTextContent) {
+          errorBody = `(binary/non-text content-type: ${contentType})`;
+        } else if (contentType?.includes("application/json")) {
+          const errorJson = await oracleRes.json();
+          errorBody = JSON.stringify(errorJson);
+        } else {
+          errorBody = await oracleRes.text();
+        }
+        
+        // Truncate to safe maximum length
+        const MAX_ERROR_LENGTH = 500;
+        if (errorBody.length > MAX_ERROR_LENGTH) {
+          errorBody = errorBody.substring(0, MAX_ERROR_LENGTH) + "...[truncated]";
+        }
+      } catch {
+        errorBody = "(failed to read response body)";
+      }
+      throw new Error(
+        `Oracle fetch failed: ${oracleRes.status} ${oracleRes.statusText}. Response: ${errorBody}. Query: "${queryForOracle.substring(0, 100)}..."`
+      );
     }
 
     const oracleData = await oracleRes.json();
