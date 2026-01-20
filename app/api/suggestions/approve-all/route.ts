@@ -47,25 +47,16 @@ export async function POST() {
         // ADMIN_ORACLE = 1
         const resolutionType = 1;
 
-        // Get current nonce to avoid conflicts
-        const wallet = oracle.runner;
-        const nonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');
-        console.log(`🔢 Using nonce: ${nonce}`);
-
-        // Call on-chain contract with explicit nonce
+        // Call on-chain contract
         const tx = await oracle.createContest(
           suggestion.yes_no_question,
           deadline,
-          resolutionType,
-          { nonce }
+          resolutionType
         );
 
         console.log(`⏳ Waiting for tx ${tx.hash}...`);
         const receipt = await tx.wait(1); // Wait for 1 confirmation
         console.log(`✅ Confirmed in block ${receipt.blockNumber}`);
-
-        // Small delay to ensure nonce increments properly
-        await new Promise(resolve => setTimeout(resolve, 1000));
 
         // Extract contestId from event
         const event = receipt.logs
