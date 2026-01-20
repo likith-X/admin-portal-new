@@ -33,26 +33,32 @@ export async function POST() {
     const errors = [];
 
     for (const suggestion of suggestions) {
-      const { data, error } = await supabaseAdmin
-        .from("suggested_contents")
-        .insert({
-          article_id: randomUUID(),
-          headline: suggestion.headline,
-          summary: suggestion.summary,
-          yes_no_question: suggestion.question,
-          resolution_criteria: suggestion.criteria,
-          score_relevance: suggestion.relevance,
-          status: "pending",
-          created_at: new Date().toISOString(),
-        })
-        .select();
+      try {
+        // Insert suggestion without article_id (make it optional/nullable)
+        const { data, error } = await supabaseAdmin
+          .from("suggested_contents")
+          .insert({
+            // article_id: removed - let database handle it or make it nullable
+            headline: suggestion.headline,
+            summary: suggestion.summary,
+            yes_no_question: suggestion.question,
+            resolution_criteria: suggestion.criteria,
+            score_relevance: suggestion.relevance,
+            status: "pending",
+            created_at: new Date().toISOString(),
+          })
+          .select();
 
-      if (error) {
-        console.error("Insert error:", error);
-        errors.push(error.message);
-      } else {
-        insertedCount++;
-        console.log(`✅ Inserted: ${suggestion.headline}`);
+        if (error) {
+          console.error("Insert error:", error);
+          errors.push(error.message);
+        } else {
+          insertedCount++;
+          console.log(`✅ Inserted: ${suggestion.headline}`);
+        }
+      } catch (err: any) {
+        console.error("Insert exception:", err);
+        errors.push(err.message);
       }
     }
 
