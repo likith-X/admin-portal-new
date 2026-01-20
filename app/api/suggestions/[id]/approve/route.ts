@@ -37,24 +37,17 @@ export async function POST(
     console.log("📡 Calling smart contract...");
     const oracle = getContestOracle();
 
-    if (!oracle.runner) {
-      console.error("❌ Oracle wallet not configured");
+    if (!oracle) {
       return NextResponse.json(
-        { error: "Smart contract signer not available" },
+        { error: "Oracle not initialized" },
         { status: 500 }
       );
     }
 
-    // Get current nonce to avoid conflicts
-    const wallet = oracle.runner;
-    const nonce = await wallet.provider.getTransactionCount(wallet.address, 'pending');
-    console.log(`🔢 Using nonce: ${nonce}`);
-
     const tx = await oracle.createContest(
       suggestion.yes_no_question,
       deadline,
-      resolutionType,
-      { nonce } // Explicitly set nonce
+      resolutionType
     );
 
     console.log(`⏳ Waiting for transaction: ${tx.hash}`);
