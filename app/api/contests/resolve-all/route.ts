@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getContestOracle } from "@/lib/contestOracleClient";
 import { resolveWithAgent } from "@/services/resolverAgent";
+import { fetchOracleData } from "@/lib/oracleDataFetcher";
 
 /**
  * Resolve All Open Contests
@@ -38,15 +39,10 @@ export async function POST() {
       try {
         console.log(`🤖 Resolving contest #${contest.contest_id_onchain}: ${contest.question}`);
 
-        // Mock oracle data (in production, fetch real data)
-        const oracleData = {
-          facts: [
-            `Contest: ${contest.question}`,
-            `Deadline: ${new Date(contest.deadline).toLocaleDateString()}`,
-            "Status: Analyzing",
-          ],
-          sources: ["CoinGecko", "NewsAPI"],
-        };
+        // Fetch real oracle data (crypto prices, news, etc.)
+        console.log(`📊 Fetching real-time oracle data...`);
+        const oracleData = await fetchOracleData(contest.question);
+        console.log(`📊 Got ${oracleData.facts.length} facts from ${oracleData.sources.join(', ')}`);
 
         // Use resolver agent to determine outcome
         const resolution = await resolveWithAgent(

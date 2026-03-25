@@ -1,12 +1,12 @@
 /**
  * Fetch New Contest Suggestions
  * 
- * Generates contest suggestions from:
- * - News APIs (NewsAPI, Google News, etc.)
- * - Trending topics
- * - Crypto price movements
- * - Political events
- * - Sports events
+ * Generates contest suggestions from multiple diverse sources:
+ * - CoinGecko (crypto market data - top coins + trending)
+ * - Reddit (trending posts from r/all)
+ * - HackerNews (top technology stories)
+ * - NewsAPI (US headlines across all categories)
+ * - Covers: crypto, technology, politics, sports, business, entertainment, trending topics
  */
 
 import { NextResponse } from "next/server";
@@ -86,69 +86,182 @@ export async function POST() {
 /**
  * Fetch recent news from multiple sources
  * - CoinGecko for crypto prices (free, no API key needed)
+ * - Reddit trending posts (free, no API key needed)
+ * - HackerNews top stories (free, no API key needed)
  * - NewsAPI if configured (optional)
+ */
+async function fetchExaTrending() {
+  if (!process.env.EXA_API_KEY) return [];
+  try {
+    const response = await fetch("https://api.exa.ai/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.EXA_API_KEY,
+      },
+      body: JSON.stringify({
+        query: "upcoming predictable events in tech, politics, and science this week",
+        numResults: 10,
+        useAutoprompt: true,
+      }),
+    });
+    const data = await response.json();
+    console.log(`🤖 Exa: Fetched ${data.results?.length || 0} neural search results`);
+    return data.results?.map((r: any) => ({
+      title: r.title,
+      description: `Predictable event: ${r.url}`,
+      source: { name: "Exa Neural Search" },
+      category: "predictable",
+    })) || [];
+  } catch (error) {
+    console.error("Exa suggestion error:", error);
+    return [];
+  }
+}
+
+async function fetchFMPMarketMovers() {
+  if (!process.env.FINANCIAL_MODELING_PREP_API_KEY) return [];
+  try {
+    const response = await fetch(
+      `https://financialmodelingprep.com/api/v3/stock_market/actives?apikey=${process.env.FINANCIAL_MODELING_PREP_API_KEY}`
+    );
+    const data = await response.json();
+    
+    if (!Array.isArray(data)) {
+      console.warn("FMP market movers: Response is not an array", data);
+      return [];
+    }
+
+    console.log(`📊 FMP: Fetched ${data.length} market movers`);
+    return data.slice(0, 5).map((stock: any) => ({
+      title: `${stock.name} (${stock.symbol}) is highly active with ${stock.changesPercentage}% change`,
+      description: `Current price: $${stock.price}. Daily volume: ${stock.volume}`,
+      source: { name: "Financial Modeling Prep" },
+      category: "business",
+    }));
+  } catch (error) {
+    console.error("FMP market movers error:", error);
+    return [];
+  }
+}
+
+async function fetchTheRundownSports() {
+  if (!process.env.THE_RUNDOWN_API_KEY) return [];
+  try {
+    const response = await fetch("https://therundown-therundown-v1.p.rapidapi.com/sports/2/events", {
+      headers: {
+        "X-RapidAPI-Key": process.env.THE_RUNDOWN_API_KEY,
+        "X-RapidAPI-Host": "therundown-therundown-v1.p.rapidapi.com"
+      }
+    });
+    const data = await response.json();
+    
+    if (!data || !Array.isArray(data.events)) {
+      console.warn("The Rundown: No events array found", data);
+      return [];
+    }
+
+    console.log(`🏀 The Rundown: Fetched ${data.events.length} sports events`);
+    return data.events.slice(0, 5).map((e: any) => ({
+      title: `${e.teams?.[0]?.name || 'Team 1'} vs ${e.teams?.[1]?.name || 'Team 2'} Game Today`,
+      description: `Matchup status: ${e.score?.event_status || 'scheduled'}. Upcoming game with measurable outcome.`,
+      source: { name: "The Rundown Sports" },
+      category: "sports",
+    }));
+  } catch (error) {
+    console.error("The Rundown sports error:", error);
+    return [];
+  }
+}
+
+/**
+ * Fetch recent news from multiple sources
+ * - Exa Neural Search for predictable events
+ * - Financial Modeling Prep for market data
+ * - The Rundown for sports matchups
+ * - NewsAPI, CoinGecko, Reddit, HackerNews for diversity
  */
 async function fetchRecentNews() {
   const articles: any[] = [];
 
   try {
-    // 1. Fetch crypto market data from CoinGecko (free API)
-    const cryptoResponse = await fetch(
-      'https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=10&sparkline=false&price_change_percentage=24h'
-    );
-    
-    if (cryptoResponse.ok) {
-      const cryptoData = await cryptoResponse.json();
-      cryptoData.forEach((coin: any) => {
-        const priceChange = coin.price_change_percentage_24h || 0;
-        const direction = priceChange > 0 ? 'up' : 'down';
-        articles.push({
-          title: `${coin.name} (${coin.symbol.toUpperCase()}) Price ${direction.toUpperCase()} ${Math.abs(priceChange).toFixed(2)}%`,
-          description: `${coin.name} is currently trading at $${coin.current_price.toLocaleString()} with a 24h change of ${priceChange.toFixed(2)}%. Market cap: $${(coin.market_cap / 1e9).toFixed(2)}B`,
-          source: { name: "CoinGecko" },
-          category: "crypto",
-        });
-      });
-    }
+    // 1. Parallel fetch from all sources for efficiency
+    const results = await Promise.allSettled([
+      fetchExaTrending(),
+      fetchFMPMarketMovers(),
+      fetchTheRundownSports(),
+      // Original sources
+      fetch('https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&order=market_cap_desc&per_page=3'),
+      process.env.NEWS_API_KEY ? fetch(`https://newsapi.org/v2/top-headlines?country=us&language=en&pageSize=10&apiKey=${process.env.NEWS_API_KEY}`) : null,
+      fetch('https://www.reddit.com/r/all/hot.json?limit=5', { headers: { 'User-Agent': 'AgentHerald/1.0' } }),
+      fetch('https://hacker-news.firebaseio.com/v0/topstories.json?limitToFirst=10')
+    ]);
 
-    // 2. Optional: NewsAPI if key is configured
-    const newsApiKey = process.env.NEWS_API_KEY;
-    if (newsApiKey) {
-      const newsResponse = await fetch(
-        `https://newsapi.org/v2/top-headlines?category=business,technology&language=en&pageSize=10&apiKey=${newsApiKey}`
-      );
-      
-      if (newsResponse.ok) {
-        const newsData = await newsResponse.json();
-        if (newsData.articles) {
-          newsData.articles.forEach((article: any) => {
+    // 2. Process Results 0, 1, 2 (Directly return arrays)
+    if (results[0].status === 'fulfilled') articles.push(...(results[0].value as any[]));
+    if (results[1].status === 'fulfilled') articles.push(...(results[1].value as any[]));
+    if (results[2].status === 'fulfilled') articles.push(...(results[2].value as any[]));
+
+    // 3. Process Result 3 (CoinGecko)
+    if (results[3].status === 'fulfilled') {
+      const resp = results[3].value as Response;
+      if (resp.status === 200) {
+        const cryptoData = await resp.json();
+        if (Array.isArray(cryptoData)) {
+          cryptoData.forEach((coin: any) => {
             articles.push({
-              title: article.title,
-              description: article.description || article.content?.substring(0, 200),
-              source: article.source,
-              category: "news",
+              title: `${coin.name} (${coin.symbol.toUpperCase()}) Market Update`,
+              description: `Current price: $${coin.current_price.toLocaleString()}, 24h Change: ${coin.price_change_percentage_24h?.toFixed(2)}%`,
+              source: { name: "CoinGecko" },
+              category: "crypto",
             });
           });
         }
       }
     }
 
-    // 3. Fetch trending crypto data for additional context
-    const trendingResponse = await fetch(
-      'https://api.coingecko.com/api/v3/search/trending'
-    );
-    
-    if (trendingResponse.ok) {
-      const trendingData = await trendingResponse.json();
-      if (trendingData.coins) {
-        trendingData.coins.slice(0, 5).forEach((item: any) => {
-          const coin = item.item;
+    // 4. Process Result 4 (NewsAPI)
+    if (results[4].status === 'fulfilled' && results[4].value) {
+      const resp = results[4].value as Response;
+      if (resp.status === 200) {
+        const newsData = await resp.json();
+        newsData.articles?.forEach((article: any) => {
           articles.push({
-            title: `${coin.name} Trending - Rank #${coin.market_cap_rank || 'N/A'}`,
-            description: `${coin.name} (${coin.symbol}) is trending with a price of $${coin.data?.price || 'N/A'}`,
-            source: { name: "CoinGecko Trending" },
-            category: "crypto-trending",
+            title: article.title,
+            description: article.description || article.content?.substring(0, 200),
+            source: article.source,
+            category: "news",
           });
+        });
+      }
+    }
+
+    // 5. Process Result 5 (Reddit)
+    if (results[5].status === 'fulfilled') {
+      const resp = results[5].value as Response;
+      if (resp.status === 200) {
+        const redditData = await resp.json();
+        redditData.data?.children?.forEach((post: any) => {
+          articles.push({
+            title: post.data.title,
+            description: `Trending on Reddit with ${post.data.ups} upvotes.`,
+            source: { name: `r/${post.data.subreddit}` },
+            category: "trending",
+          });
+        });
+      }
+    }
+
+    // 6. Process Result 6 (HackerNews)
+    if (results[6].status === 'fulfilled') {
+      const resp = results[6].value as Response;
+      if (resp.status === 200) {
+        const storyIds = await resp.json();
+        articles.push({
+          title: "Top HackerNews Stories",
+          description: `Latest trending tech discussions on HN. Top story ID: ${storyIds[0]}`,
+          source: { name: "HackerNews" },
+          category: "technology",
         });
       }
     }
@@ -175,13 +288,13 @@ async function generateAISuggestions(newsArticles: any[]) {
   }
 
   try {
-    const prompt = `Analyze these recent news articles and generate 5 prediction market contest suggestions.
+    const prompt = `Analyze these recent news articles and generate 15 prediction market contest suggestions.
 
 News Articles:
 ${newsArticles.map((article, i) => `${i + 1}. [${article.category || 'news'}] ${article.title}
    ${article.description || ''}`).join('\n\n')}
 
-Generate 5 contest suggestions based on this news. For each suggestion, provide:
+Generate 15 contest suggestions based on this news. For each suggestion, provide:
 1. headline: Short catchy title (max 80 chars)
 2. summary: Brief description explaining the context (2-3 sentences)
 3. question: Clear YES/NO question that can be objectively resolved
@@ -193,7 +306,8 @@ Requirements:
 - Include specific numbers, dates, or thresholds in questions
 - Resolution criteria must be objective and verifiable
 - Focus on events that will resolve within 1-7 days
-- Prioritize crypto prices, market movements, and trending topics
+- Cover diverse topics: politics, sports, technology, business, entertainment, crypto
+- Create contests that appeal to different audiences and interests
 
 Return ONLY a valid JSON array with no additional text:
 [
@@ -261,10 +375,28 @@ function getSampleArticles() {
       category: "crypto",
     },
     {
-      title: "Ethereum Network Activity Increases",
-      description: "Ethereum sees increased transaction volume and developer activity",
-      source: { name: "Crypto News" },
-      category: "crypto",
+      title: "Presidential Election Polls Show Tight Race",
+      description: "Latest polls indicate narrowing gap between leading candidates ahead of elections",
+      source: { name: "Political News" },
+      category: "politics",
+    },
+    {
+      title: "NBA Finals Game 7 Tonight",
+      description: "Championship series goes to decisive game as teams battle for title",
+      source: { name: "Sports News" },
+      category: "sports",
+    },
+    {
+      title: "Tech Giant Announces AI Breakthrough",
+      description: "Major technology company reveals new artificial intelligence capabilities",
+      source: { name: "Tech News" },
+      category: "technology",
+    },
+    {
+      title: "Federal Reserve Interest Rate Decision Expected",
+      description: "Markets await central bank's monetary policy announcement this week",
+      source: { name: "Financial News" },
+      category: "business",
     },
   ];
 }

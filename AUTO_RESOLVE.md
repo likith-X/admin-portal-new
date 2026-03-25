@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-Agent Herald now **automatically resolves contests** when their deadlines pass. No manual intervention required.
+Agent Herald now automatically resolves contests when their deadlines pass. No manual intervention required.
 
 ```bash
 # Test it locally

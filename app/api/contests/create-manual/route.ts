@@ -61,6 +61,8 @@ export async function POST(request: Request) {
         deadline: deadlineDate.toISOString(),
         status: "OPEN",
         contest_id_onchain: contestIdOnchain,
+        resolution_type: "ADMIN_ORACLE",
+        tx_hash: receipt.hash,
         created_at: new Date().toISOString(),
       })
       .select()

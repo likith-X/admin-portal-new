@@ -1,7 +1,12 @@
 {
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "framework": "nextjs",
-  "outputDirectory": ".next"
+  "crons": [
+    {
+      "path": "/api/jobs/autonomous-sync",
+      "schedule": "0 */8 * * *"
+    },
+    {
+      "path": "/api/jobs/autoResolve",
+      "schedule": "30 */8 * * *"
+    }
+  ]
 }

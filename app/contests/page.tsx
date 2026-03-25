@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { RefreshCcw, Plus, Zap, X as XIcon, ExternalLink, Loader2, Check, Globe, TrendingUp } from "lucide-react";
 
 type Contest = {
   id: string;
@@ -12,6 +14,8 @@ type Contest = {
   contest_id_onchain: number;
   created_at: string;
   resolved_at?: string;
+  social_buzz_score?: number;
+  votes?: Array<{ userId: string }>;
   resolution_metadata?: {
     explanation?: string;
     confidence?: number;
@@ -46,20 +50,12 @@ export default function ContestsPage() {
   const [proofURIs, setProofURIs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [refreshing, setRefreshing] = useState(false);
-  
-  // Simulation state
   const [showSimulation, setShowSimulation] = useState<Record<string, boolean>>({});
   const [simulationResults, setSimulationResults] = useState<Record<string, SimulationResult>>({});
   const [simulating, setSimulating] = useState<Record<string, boolean>>({});
-  
-  // Resolution details expansion
   const [expandedResolution, setExpandedResolution] = useState<Record<string, boolean>>({});
-  
-  // Date filter state
   const [selectedDate, setSelectedDate] = useState<string>("");
   const [dateFilterEnabled, setDateFilterEnabled] = useState(false);
-  
-  // Manual contest creation state
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newQuestion, setNewQuestion] = useState("");
@@ -67,745 +63,412 @@ export default function ContestsPage() {
   const [resolvingAll, setResolvingAll] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [activeTab, setActiveTab] = useState<"active" | "expired">("active");
+  const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    fetchContests();
-  }, []);
-
-  useEffect(() => {
-    applyDateFilter();
-  }, [contests, selectedDate, dateFilterEnabled, activeTab]);
+  useEffect(() => { fetchContests(); }, []);
+  useEffect(() => { applyFilters(); }, [contests, selectedDate, dateFilterEnabled, activeTab, searchQuery]);
 
   async function fetchContests() {
     setRefreshing(true);
     const res = await fetch("/api/contests");
     const data = await res.json();
-    
-    // Sort by deadline (ascending - soonest first)
-    const sortedData = data.sort((a: Contest, b: Contest) => {
-      return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
-    });
-    
+    const sortedData = data.sort((a: Contest, b: Contest) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
     setContests(sortedData);
     setRefreshing(false);
-
-    // Fetch AI suggestions for open contests
     data.forEach(async (contest: Contest) => {
       if (contest.status === "OPEN") {
         const aiRes = await fetch(`/api/contests/${contest.id}/ai-suggestion`);
         if (aiRes.ok) {
           const aiData = await aiRes.json();
-          if (aiData) {
-            setAiSuggestions((prev) => ({ ...prev, [contest.id]: aiData }));
-          }
+          if (aiData) setAiSuggestions((prev) => ({ ...prev, [contest.id]: aiData }));
         }
       }
     });
   }
 
-  function applyDateFilter() {
-    let baseContests = contests;
-
-    // Filter by active/expired tab
+  function applyFilters() {
     const now = new Date();
-    if (activeTab === "active") {
-      baseContests = contests.filter(c => new Date(c.deadline) >= now);
-    } else {
-      baseContests = contests.filter(c => new Date(c.deadline) < now);
-    }
+    let baseContests = activeTab === "active"
+      ? contests.filter(c => new Date(c.deadline) >= now)
+      : contests.filter(c => new Date(c.deadline) < now);
 
-    // Then apply date filter if enabled
-    if (!dateFilterEnabled || !selectedDate) {
-      setFilteredContests(baseContests);
-      return;
-    }
-
-    const filterDate = new Date(selectedDate);
-    const filtered = baseContests.filter((contest) => {
-      const contestDate = new Date(contest.created_at);
-      return (
-        contestDate.getFullYear() === filterDate.getFullYear() &&
-        contestDate.getMonth() === filterDate.getMonth() &&
-        contestDate.getDate() === filterDate.getDate()
+    // Apply Search Query
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      baseContests = baseContests.filter(c => 
+        c.question.toLowerCase().includes(q) || 
+        c.contest_id_onchain.toString().includes(q)
       );
-    });
+    }
 
-    setFilteredContests(filtered);
+    if (!dateFilterEnabled || !selectedDate) { setFilteredContests(baseContests); return; }
+    const filterDate = new Date(selectedDate);
+    setFilteredContests(baseContests.filter((contest) => {
+      const contestDate = new Date(contest.created_at);
+      return contestDate.getFullYear() === filterDate.getFullYear() && contestDate.getMonth() === filterDate.getMonth() && contestDate.getDate() === filterDate.getDate();
+    }));
   }
 
-  function clearDateFilter() {
-    setDateFilterEnabled(false);
-    setSelectedDate("");
-  }
+  function clearDateFilter() { setDateFilterEnabled(false); setSelectedDate(""); }
 
   async function handleResolve(contestId: string, outcome: boolean) {
     const proofURI = proofURIs[contestId];
-    if (!proofURI) {
-      alert("Please provide a proof URI");
-      return;
-    }
-
+    if (!proofURI) { alert("Please provide a proof URI"); return; }
     setLoading((prev) => ({ ...prev, [contestId]: true }));
-
     try {
-      const res = await fetch(`/api/contests/${contestId}/resolve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ outcome, proofURI }),
-      });
-
-      if (res.ok) {
-        alert("Contest resolved successfully!");
-        fetchContests();
-      } else {
-        const error = await res.json();
-        alert(`Error: ${error.error || "Failed to resolve"}`);
-      }
-    } catch (error) {
-      alert("Network error. Please try again.");
-    } finally {
-      setLoading((prev) => ({ ...prev, [contestId]: false }));
-    }
-  }
-
-  async function resolveAsAISuggests(contestId: string) {
-    const aiSuggestion = aiSuggestions[contestId];
-    if (!aiSuggestion || !aiSuggestion.sources?.[0]) {
-      alert("No AI suggestion or proof source available");
-      return;
-    }
-
-    await handleResolve(contestId, aiSuggestion.suggested_outcome);
+      const res = await fetch(`/api/contests/${contestId}/resolve`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ outcome, proofURI }) });
+      if (res.ok) { alert("Contest resolved successfully!"); fetchContests(); }
+      else { const error = await res.json(); alert(`Error: ${error.error || "Failed to resolve"}`); }
+    } catch { alert("Network error. Please try again."); }
+    finally { setLoading((prev) => ({ ...prev, [contestId]: false })); }
   }
 
   async function handleQuickResolve(contestId: string) {
-    if (!confirm("Resolve this contest now using the resolver agent?")) {
-      return;
-    }
-
+    if (!confirm("Resolve this contest now using the resolver agent?")) return;
     setLoading((prev) => ({ ...prev, [contestId]: true }));
-
     try {
-      console.log("🚀 Starting quick resolve for:", contestId);
-      const res = await fetch(`/api/contests/${contestId}/quick-resolve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      console.log("📡 Response status:", res.status);
-
+      const res = await fetch(`/api/contests/${contestId}/quick-resolve`, { method: "POST", headers: { "Content-Type": "application/json" } });
       if (res.ok) {
         const result = await res.json();
-        console.log("✅ Resolution result:", result);
         alert(`Contest resolved!\nOutcome: ${result.outcome ? "YES" : "NO"}\nTX: ${result.transactionHash}\nExplanation: ${result.explanation || "N/A"}`);
-        
-        console.log("🔄 Fetching updated contests...");
         await fetchContests();
-        console.log("✅ Contests refreshed");
-      } else {
-        const error = await res.json();
-        console.error("❌ Resolution failed:", error);
-        alert(`Error: ${error.error || "Failed to resolve"}`);
-      }
-    } catch (error) {
-      console.error("❌ Network error:", error);
-      alert("Network error. Please try again.");
-    } finally {
-      setLoading((prev) => ({ ...prev, [contestId]: false }));
-    }
+      } else { const error = await res.json(); alert(`Error: ${error.error || "Failed to resolve"}`); }
+    } catch { alert("Network error. Please try again."); }
+    finally { setLoading((prev) => ({ ...prev, [contestId]: false })); }
   }
 
   async function handleCreateManualContest(e: React.FormEvent) {
     e.preventDefault();
-    
-    if (!newQuestion.trim() || !newDeadline) {
-      alert("Please fill in all fields");
-      return;
-    }
-
+    if (!newQuestion.trim() || !newDeadline) { alert("Please fill in all fields"); return; }
     setCreating(true);
-
     try {
-      const res = await fetch("/api/contests/create-manual", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          question: newQuestion.trim(),
-          deadline: newDeadline,
-        }),
-      });
-
+      const res = await fetch("/api/contests/create-manual", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question: newQuestion.trim(), deadline: newDeadline }) });
       if (res.ok) {
         const result = await res.json();
-        alert(`✅ Contest created successfully!\nOn-chain ID: ${result.contest.contest_id_onchain}\nTX: ${result.transactionHash}`);
-        setShowCreateModal(false);
-        setNewQuestion("");
-        setNewDeadline("");
-        fetchContests();
-      } else {
-        const error = await res.json();
-        alert(`Error: ${error.error || "Failed to create contest"}`);
-      }
-    } catch (error: any) {
-      alert(`Network error: ${error.message}`);
-    } finally {
-      setCreating(false);
-    }
+        alert(`✅ Created!\nOn-chain ID: ${result.contest.contest_id_onchain}`);
+        setShowCreateModal(false); setNewQuestion(""); setNewDeadline(""); fetchContests();
+      } else { const error = await res.json(); alert(`Error: ${error.error || "Failed"}`); }
+    } catch (error: any) { alert(`Network error`); }
+    finally { setCreating(false); }
   }
 
   async function handleResolveAll() {
-    const openContests = contests.filter((c) => c.status === "OPEN");
-    const expiredContests = openContests.filter(
-      (c) => new Date(c.deadline) < new Date()
-    );
-
-    if (expiredContests.length === 0) {
-      alert("No expired contests to resolve");
-      return;
-    }
-
-    if (
-      !confirm(
-        `Resolve all ${expiredContests.length} expired contests?\n\nThis will:\n- Use AI to determine outcomes\n- Submit on-chain resolutions\n- Cost gas fees for each transaction\n\nExpired contests:\n${expiredContests.map((c) => `- ${c.question}`).join("\n")}`
-      )
-    ) {
-      return;
-    }
-
+    const expiredContests = contests.filter((c) => c.status === "OPEN" && new Date(c.deadline) < new Date());
+    if (expiredContests.length === 0) { alert("No expired contests to resolve"); return; }
+    if (!confirm(`Resolve all ${expiredContests.length} expired contests?`)) return;
     setResolvingAll(true);
     try {
-      const res = await fetch("/api/contests/resolve-all", {
-        method: "POST",
-      });
-
+      const res = await fetch("/api/contests/resolve-all", { method: "POST" });
       const result = await res.json();
-
       if (res.ok) {
-        if (result.errors && result.errors.length > 0) {
-          alert(
-            `✅ Resolved ${result.count} contests!\n\n⚠️ ${result.errors.length} failed:\n${result.errors.map((e: any) => `- ${e.question}`).join("\n")}`
-          );
-        } else {
-          alert(
-            `✅ Successfully resolved ${result.count} contests!\n\n${result.results.map((r: any) => `${r.question}\n→ ${r.outcome}`).join("\n\n")}`
-          );
-        }
+        if (result.errors?.length > 0) alert(`✅ Resolved ${result.count} contests!\n⚠️ ${result.errors.length} failed.`);
+        else alert(`✅ Successfully resolved ${result.count} contests!`);
         fetchContests();
-      } else {
-        alert(`Error: ${result.error || "Failed to resolve all contests"}`);
-      }
-    } catch (error: any) {
-      alert(`Network error: ${error.message}`);
-    } finally {
-      setResolvingAll(false);
-    }
+      } else alert(`Error: ${result.error}`);
+    } catch (error: any) { alert(`Network error: ${error.message}`); }
+    finally { setResolvingAll(false); }
   }
 
   async function handleSyncStatus() {
-    if (!confirm("Sync database with blockchain status?\n\nThis will check all OPEN contests and update their status if they're already resolved on-chain.")) {
-      return;
-    }
-
+    if (!confirm("Sync database with blockchain status?")) return;
     setSyncing(true);
     try {
-      const res = await fetch("/api/contests/sync-status", {
-        method: "POST",
-      });
-
+      const res = await fetch("/api/contests/sync-status", { method: "POST" });
       const result = await res.json();
-
-      if (res.ok) {
-        alert(
-          `✅ Sync complete!\n\n${result.synced} contests updated\n\n${result.results?.map((r: any) => `#${r.contestId}: ${r.status}`).join("\n") || ""}`
-        );
-        fetchContests();
-      } else {
-        alert(`Error: ${result.error || "Failed to sync"}`);
-      }
-    } catch (error: any) {
-      alert(`Network error: ${error.message}`);
-    } finally {
-      setSyncing(false);
-    }
+      if (res.ok) { alert(`✅ Sync complete!\n${result.synced} contests updated`); fetchContests(); }
+      else alert(`Error`);
+    } catch (error: any) { alert(`Network error`); }
+    finally { setSyncing(false); }
   }
 
-  async function handleSimulate(contestId: string) {
-    setSimulating((prev) => ({ ...prev, [contestId]: true }));
-    
-    try {
-      const res = await fetch("/api/contests/simulate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contestId }),
-      });
-
-      const result = await res.json();
-
-      if (res.ok) {
-        setSimulationResults((prev) => ({ ...prev, [contestId]: result }));
-        setShowSimulation((prev) => ({ ...prev, [contestId]: true }));
-      } else {
-        alert(`Simulation failed: ${result.error}`);
-      }
-    } catch (error: any) {
-      alert(`Network error: ${error.message}`);
-    } finally {
-      setSimulating((prev) => ({ ...prev, [contestId]: false }));
-    }
-  }
+  const expiredOpenCount = contests.filter((c) => c.status === "OPEN" && new Date(c.deadline) < new Date()).length;
 
   return (
-    <div className="min-h-screen bg-black p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-4xl font-bold text-white tracking-tight">Active Contests</h1>
-          <div className="flex gap-3">
-            {contests.filter((c) => c.status === "OPEN" && new Date(c.deadline) < new Date()).length > 0 && (
-              <button
-                onClick={handleResolveAll}
-                disabled={resolvingAll}
-                className="flex items-center gap-2 bg-white hover:bg-gray-200 text-black font-semibold py-3 px-6 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <svg
-                  className={`w-5 h-5 ${resolvingAll ? 'animate-spin' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {resolvingAll
-                  ? "Resolving..."
-                  : `⚡ Resolve All (${contests.filter((c) => c.status === "OPEN" && new Date(c.deadline) < new Date()).length})`}
-              </button>
-            )}
-            <button
-              onClick={handleSyncStatus}
-              disabled={syncing}
-              className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold py-3 px-6 rounded transition border border-neutral-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <svg
-                className={`w-5 h-5 ${syncing ? 'animate-spin' : ''}`}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              {syncing ? "Syncing..." : "🔄 Sync Status"}
-            </button>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold py-3 px-6 rounded transition border border-neutral-700"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Create Contest
-            </button>
-          </div>
-        </div>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1, transition: { staggerChildren: 0.1 } }}
+      className="max-w-6xl mx-auto space-y-24 pb-20"
+    >
+      {/* Header Array */}
+      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-4xl">
+        <h2 className="font-display font-bold text-6xl md:text-7xl leading-[1.05] tracking-tight">
+          Prediction Markets <br/> & Network Contracts.
+        </h2>
+        <p className="font-mono text-sm leading-relaxed text-black/60 max-w-xl">
+          Manage, deploy, and execute smart-contract resolutions via autonomous AI arbitrators and external global state synchronizations.
+        </p>
 
-        {/* Tab Navigation */}
-        <div className="flex gap-2 mb-6">
-          <button
-            onClick={() => setActiveTab("active")}
-            className={`flex-1 py-3 px-6 rounded font-semibold transition ${
-              activeTab === "active"
-                ? "bg-white text-black"
-                : "bg-neutral-900 text-gray-400 border border-neutral-800 hover:border-neutral-700"
-            }`}
-          >
-            ⏳ Active Contests ({contests.filter(c => new Date(c.deadline) >= new Date()).length})
+        <div className="flex flex-wrap gap-4 pt-4">
+          <button onClick={() => setShowCreateModal(true)} className="btn-editorial text-[11px] flex items-center gap-2">
+            <Plus className="w-4 h-4" />
+            Deploy Contract
           </button>
-          <button
-            onClick={() => setActiveTab("expired")}
-            className={`flex-1 py-3 px-6 rounded font-semibold transition ${
-              activeTab === "expired"
-                ? "bg-white text-black"
-                : "bg-neutral-900 text-gray-400 border border-neutral-800 hover:border-neutral-700"
-            }`}
-          >
-            ⏰ Expired Contests ({contests.filter(c => new Date(c.deadline) < new Date()).length})
-          </button>
-        </div>
 
-        {/* Date Filter Section */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 mb-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-white font-semibold">📅 Filter by Date:</span>
-            </div>
-            
-            <div className="flex-1 flex flex-wrap items-center gap-3">
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => {
-                  setSelectedDate(e.target.value);
-                  setDateFilterEnabled(true);
-                }}
-                className="bg-neutral-950 border border-neutral-700 rounded px-4 py-2 text-white focus:outline-none focus:border-white"
-              />
-              
-              {dateFilterEnabled && (
-                <button
-                  onClick={clearDateFilter}
-                  className="bg-neutral-800 hover:bg-neutral-700 text-white px-4 py-2 rounded transition text-sm border border-neutral-700 flex items-center gap-2"
-                >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                  Clear Filter
-                </button>
-              )}
-              
-              <div className="text-sm text-gray-400">
-                {dateFilterEnabled ? (
-                  <span>
-                    Showing {filteredContests.length} {activeTab} contest{filteredContests.length !== 1 ? 's' : ''} from{' '}
-                    {new Date(selectedDate).toLocaleDateString()}
-                  </span>
-                ) : (
-                  <span>Showing {filteredContests.length} {activeTab} contests</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredContests.map((contest) => {
-            const aiSuggestion = aiSuggestions[contest.id];
-            const isOpen = contest.status === "OPEN";
-
-            return (
-              <div
-                key={contest.id}
-                className="bg-neutral-900 border border-neutral-800 rounded-lg p-5 hover:border-neutral-700 transition-all flex flex-col h-full"
-              >
-                {/* Header */}
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <span className="text-gray-400 font-mono text-xs">
-                      #{contest.contest_id_onchain}
-                    </span>
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-semibold ${
-                        isOpen
-                          ? "bg-neutral-800 text-gray-300 border border-neutral-700"
-                          : "bg-white text-black"
-                      }`}
-                    >
-                      {contest.status}
-                    </span>
-                  </div>
-                  <h2 className="text-base font-semibold text-white line-clamp-3 min-h-[3.5rem]">
-                    {contest.question}
-                  </h2>
-                </div>
-
-                {/* Info */}
-                <div className="text-xs text-gray-400 mb-4 space-y-1">
-                  <div className="flex items-center gap-1">
-                    <span>📅</span>
-                    <span className="truncate">
-                      Created: {new Date(contest.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span>⏰</span>
-                    <span className="truncate">Deadline: {new Date(contest.deadline).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span>🔧</span>
-                    <span>ADMIN_ORACLE</span>
-                  </div>
-                </div>
-
-                {/* AI Suggestion (compact) */}
-                {isOpen && aiSuggestion && (
-                  <div className="bg-neutral-950 border border-neutral-700 rounded-lg p-3 mb-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">🤖</span>
-                        <span className="text-xs text-gray-300 font-semibold">AI</span>
-                      </div>
-                      <span
-                        className={`px-2 py-0.5 rounded text-xs font-semibold ${
-                          aiSuggestion.suggested_outcome
-                            ? "bg-white text-black"
-                            : "bg-neutral-800 text-white"
-                        }`}
-                      >
-                        {aiSuggestion.suggested_outcome ? "YES" : "NO"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-400 line-clamp-2">{aiSuggestion.reasoning}</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      {(aiSuggestion.confidence * 100).toFixed(0)}% confidence
-                    </p>
-                  </div>
-                )}
-
-                {/* Resolved Outcome with Transparency */}
-                {!isOpen && (
-                  <div className="bg-neutral-950 border border-neutral-700 rounded-lg p-3 mb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-xs text-gray-500 font-semibold">RESOLUTION</p>
-                      <span
-                        className={`text-base font-bold ${
-                          contest.resolved_outcome ? "text-green-400" : "text-red-400"
-                        }`}
-                      >
-                        {contest.resolved_outcome ? "✅ YES" : "❌ NO"}
-                      </span>
-                    </div>
-                    
-                    {/* Resolution Details */}
-                    <div className="space-y-2 text-xs border-t border-neutral-800 pt-2 mt-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Method:</span>
-                        <span className="text-gray-400 font-mono">AI Auto</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Resolved:</span>
-                        <span className="text-gray-400 font-mono">
-                          {contest.resolved_at ? new Date(contest.resolved_at).toLocaleString() : "N/A"}
-                        </span>
-                      </div>
-                      {contest.proof_uri && (
-                        <div className="mt-2 pt-2 border-t border-neutral-800">
-                          <p className="text-gray-600 mb-1">Reasoning:</p>
-                          <p className="text-gray-400 text-xs line-clamp-2">{contest.proof_uri}</p>
-                        </div>
-                      )}
-                      {aiSuggestion && (
-                        <div className="mt-2 pt-2 border-t border-neutral-800">
-                          <p className="text-gray-600 mb-1">Confidence:</p>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 bg-neutral-900 rounded-full h-1.5">
-                              <div
-                                className="bg-green-500 h-1.5 rounded-full"
-                                style={{ width: `${aiSuggestion.confidence * 100}%` }}
-                              />
-                            </div>
-                            <span className="text-gray-400 font-mono">
-                              {(aiSuggestion.confidence * 100).toFixed(0)}%
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Resolution Form */}
-                {isOpen && (
-                  <div className="mt-auto border-t border-neutral-800 pt-4">
-                    <h3 className="text-white font-semibold text-sm mb-3 flex items-center gap-1">
-                      <span>⚖️</span> Resolve
-                    </h3>
-
-                    <input
-                      type="text"
-                      placeholder="Proof URI"
-                      value={proofURIs[contest.id] || ""}
-                      onChange={(e) =>
-                        setProofURIs((prev) => ({ ...prev, [contest.id]: e.target.value }))
-                      }
-                      className="w-full bg-neutral-950 border border-neutral-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600 mb-3 focus:outline-none focus:border-white"
-                    />
-
-                    <div className="space-y-2">
-                      <button
-                        onClick={() => handleQuickResolve(contest.id)}
-                        disabled={loading[contest.id]}
-                        className="w-full bg-white hover:bg-gray-200 text-black font-semibold py-2 px-3 rounded transition disabled:opacity-50 text-sm flex items-center justify-center gap-2"
-                      >
-                        {loading[contest.id] ? "⏳ Resolving..." : "⚡ Quick Resolve (Agent)"}
-                      </button>
-                      {aiSuggestion && (
-                        <button
-                          onClick={() => resolveAsAISuggests(contest.id)}
-                          disabled={loading[contest.id]}
-                          className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-semibold py-2 px-3 rounded transition disabled:opacity-50 text-sm"
-                        >
-                          {loading[contest.id] ? "⏳" : "🤖 AI Suggests"}
-                        </button>
-                      )}
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => handleResolve(contest.id, true)}
-                          disabled={loading[contest.id]}
-                          className="bg-neutral-800 hover:bg-neutral-700 text-white font-semibold py-2 px-3 rounded transition disabled:opacity-50 text-sm border border-neutral-700"
-                        >
-                          ✅ YES
-                        </button>
-                        <button
-                          onClick={() => handleResolve(contest.id, false)}
-                          disabled={loading[contest.id]}
-                          className="bg-neutral-800 hover:bg-neutral-700 text-white font-semibold py-2 px-3 rounded transition disabled:opacity-50 text-sm border border-neutral-700"
-                        >
-                          ❌ NO
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-
-          {(dateFilterEnabled ? filteredContests : contests).length === 0 && (
-            <div className="col-span-full text-center py-12 text-gray-400">
-              {dateFilterEnabled ? (
-                <>
-                  <p className="text-xl mb-2">📅 No contests found</p>
-                  <p className="text-sm">No contests were created on {new Date(selectedDate).toLocaleDateString()}</p>
-                  <button
-                    onClick={clearDateFilter}
-                    className="mt-4 text-white hover:text-gray-300 underline"
-                  >
-                    Clear filter to see all contests
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className="text-xl mb-2">📋 No contests yet</p>
-                  <p className="text-sm">Create your first contest manually or from the Suggestions page!</p>
-                </>
-              )}
-            </div>
+          {expiredOpenCount > 0 && (
+            <button onClick={handleResolveAll} disabled={resolvingAll} className="btn-editorial bg-[#ccff00] text-black border border-black hover:bg-black hover:text-[#ccff00] text-[11px] flex items-center gap-2">
+               {resolvingAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+               Resolve Expired ({expiredOpenCount})
+            </button>
           )}
+
+          <button onClick={handleSyncStatus} disabled={syncing} className="btn-editorial bg-white text-black border border-black hover:bg-black hover:text-white text-[11px] flex items-center gap-2">
+             <RefreshCcw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
+             Sync Blockchain
+          </button>
         </div>
 
-        {/* Manual Contest Creation Modal */}
-        {showCreateModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-neutral-900 border border-neutral-800 rounded-lg max-w-lg w-full p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-white">Create Manual Contest</h2>
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setNewQuestion("");
-                    setNewDeadline("");
-                  }}
-                  className="text-gray-400 hover:text-white transition"
+        {/* Search Interface */}
+        <div className="pt-8 w-full max-w-2xl relative group">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-black/40 group-focus-within:text-black transition-colors">
+             <div className="w-5 h-5 border border-current rounded-[3px] flex items-center justify-center">
+                <div className="w-1 h-3 bg-current rotate-12 -ml-0.5" />
+             </div>
+          </div>
+          <input 
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Query network memory..."
+            className="w-full bg-white border border-black/10 h-14 pl-14 pr-6 rounded-full font-mono text-sm outline-none focus:border-black transition-all shadow-sm hover:shadow-md placeholder:text-black/20"
+          />
+        </div>
+      </motion.div>
+
+      {/* Tabs / Control Filters */}
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <div className="flex items-end justify-between border-b-[2px] border-black pb-4 mb-4">
+          <div className="flex items-center gap-6">
+            <h3 className="font-display font-bold text-2xl tracking-tight">Active Matrix</h3>
+            <div className="flex gap-4 font-mono text-[10px] uppercase tracking-widest">
+              {(["active", "expired"] as const).map(tab => (
+                 <button key={tab} onClick={() => setActiveTab(tab)} className={`${activeTab === tab ? "text-black border-b border-black font-bold pb-1" : "text-black/40 hover:text-black"} transition-all`}>
+                   {tab}
+                 </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-4">
+             <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setDateFilterEnabled(true); }}
+               className="font-mono text-[10px] uppercase bg-transparent outline-none border-b border-black/20 focus:border-black text-black"
+             />
+             {dateFilterEnabled && <button onClick={clearDateFilter} className="font-mono text-[10px] uppercase tracking-widest text-red-500">Reset</button>}
+          </div>
+        </div>
+
+        {/* Data List rows instead of cards */}
+        <div className="w-full">
+          <div className="grid grid-cols-12 gap-4 py-3 font-mono text-[10px] uppercase tracking-widest text-black/40">
+            <div className="col-span-1">ID</div>
+            <div className="col-span-6">Market Protocol Question</div>
+            <div className="col-span-2 text-right">Deadline</div>
+            <div className="col-span-3 text-right">Status / Network Resolve</div>
+          </div>
+
+          <div>
+            {filteredContests.length === 0 ? (
+               <div className="py-20 text-center font-mono text-xs uppercase tracking-widest text-black/40">No markets discovered for this partition in the ledger.</div>
+            ) : filteredContests.map((contest, index) => {
+              const aiSuggestion = aiSuggestions[contest.id];
+              const isOpen = contest.status === "OPEN";
+
+              return (
+                <motion.div 
+                  key={contest.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3, delay: index * 0.05 }}
+                  className="grid grid-cols-12 gap-4 py-6 border-b border-black/5 items-center transition-colors group"
                 >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
+                  <div className="col-span-1 pl-2 font-mono text-[10px] text-black/50">
+                    N° {contest.contest_id_onchain}
+                  </div>
+                  
+                  <div className="col-span-6 pr-8">
+                     <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h4 className="font-display font-bold text-lg leading-snug group-hover:underline underline-offset-4">{contest.question}</h4>
+                        {(contest.social_buzz_score ?? 0) > 0 && (
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-[#ccff00] text-black font-mono text-[9px] font-black uppercase tracking-tighter shrink-0 animate-pulse border border-black shadow-[2px_2px_0_0_#000]">
+                            <TrendingUp className="w-2.5 h-2.5" />
+                            Buzz {Math.round((contest.social_buzz_score ?? 0) * 100)}%
+                          </div>
+                        )}
+                        {/* Seeding Indicator */}
+                        {contest.votes && contest.votes.some(v => v.userId === 'AGENT_H_AMM_NODE') && (
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-black text-[#ccff00] font-mono text-[9px] font-black uppercase tracking-tighter shrink-0 border border-black">
+                            Liquid Market
+                          </div>
+                        )}
+                     </div>
+                     
+                     {/* AI Display inline */}
+                     {isOpen && aiSuggestion && (
+                        <div className="flex items-center gap-3 mt-3">
+                          <span className="font-mono text-[9px] uppercase tracking-widest border border-[#ccff00] bg-[#ccff00]/10 px-2 text-[#000]">
+                            AI Recommends: {aiSuggestion.suggested_outcome ? "YES" : "NO"}
+                          </span>
+                          <span className="font-mono text-[9px] text-black/40">Confidence {Math.round(aiSuggestion.confidence * 100)}%</span>
+                        </div>
+                     )}
+
+                     {!isOpen && (
+                       <div className="flex flex-col gap-3 mt-3">
+                          <div className="flex items-center gap-3 font-mono text-[9px]">
+                            <span className={`uppercase tracking-widest px-2 py-0.5 border border-black ${contest.resolved_outcome ? "bg-black text-[#ccff00]" : "bg-[#f0f0f0] text-black"}`}>
+                              Result: {contest.resolved_outcome ? "YES" : "NO"}
+                            </span>
+                            {!isOpen && (
+                              <button 
+                                onClick={() => setExpandedResolution(prev => ({ ...prev, [contest.id]: !prev[contest.id] }))}
+                                className="flex items-center gap-2 hover:text-[#ccff00] hover:bg-black px-2 py-0.5 border border-black transition-all bg-white"
+                              >
+                                {expandedResolution[contest.id] ? "Hide Intelligence" : "View Intelligence"}
+                                <Zap className={`w-2.5 h-2.5 ${expandedResolution[contest.id] ? "fill-current" : ""}`} />
+                              </button>
+                            )}
+                            {contest.proof_uri && (
+                              <a href={contest.proof_uri} target="_blank" className="flex items-center gap-1 hover:underline text-black/60">
+                                Network Proof <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            )}
+                          </div>
+
+                          <AnimatePresence>
+                            {expandedResolution[contest.id] && contest.resolution_metadata && (
+                              <motion.div 
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="mt-4 p-6 bg-[#f9f9f9] border-2 border-black shadow-[4px_4px_0_0_#000] space-y-6">
+                                  <div className="space-y-2">
+                                    <h5 className="font-mono text-[10px] uppercase tracking-[0.2em] font-bold text-black/40">Autonomous Reasoning</h5>
+                                    <p className="font-sans text-sm leading-relaxed text-black font-medium">
+                                      {contest.resolution_metadata?.explanation || "This contest was resolved manually or prior to intelligence integration. Metadata unavailable."}
+                                    </p>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-8">
+                                    <div className="space-y-3">
+                                      <h5 className="font-mono text-[10px] uppercase tracking-[0.2em] font-bold text-black/40">Confidence Matrix</h5>
+                                      <div className="h-4 bg-black/5 border border-black relative overflow-hidden">
+                                        <motion.div 
+                                          initial={{ width: 0 }}
+                                          animate={{ width: `${(contest.resolution_metadata?.confidence || 0) * 100}%` }}
+                                          className="h-full bg-[#ccff00]"
+                                        />
+                                        <span className="absolute inset-0 flex items-center justify-center font-mono text-[9px] font-bold mix-blend-difference text-white">
+                                          {Math.round((contest.resolution_metadata?.confidence || 0) * 100)}% CERTAINTY
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-3">
+                                      <h5 className="font-mono text-[10px] uppercase tracking-[0.2em] font-bold text-black/40">Data Integration</h5>
+                                      <div className="flex flex-wrap gap-2">
+                                        {(contest.resolution_metadata?.sources || ["Manual Audit"]).map((source, i) => (
+                                          <span key={i} className="flex items-center gap-1.5 px-2 py-0.5 bg-white border border-black/10 font-mono text-[9px] text-black/60 capitalize">
+                                            <Globe className="w-2.5 h-2.5" />
+                                            {source}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {contest.resolution_metadata?.evidence && contest.resolution_metadata.evidence.length > 0 ? (
+                                    <div className="space-y-3 border-t border-black/10 pt-4">
+                                      <h5 className="font-mono text-[10px] uppercase tracking-[0.2em] font-bold text-black/40">Verifiable Evidence Nodes</h5>
+                                      <ul className="space-y-2">
+                                        {contest.resolution_metadata.evidence.map((item, i) => (
+                                          <li key={i} className="flex items-start gap-3 font-mono text-[10px] text-black/70 italic leading-relaxed">
+                                            <span className="text-[#ccff00] bg-black px-1 shrink-0">[{i+1}]</span>
+                                            {item}
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  ) : (
+                                    <div className="pt-4 border-t border-black/10">
+                                      <span className="font-mono text-[9px] text-black/40 italic">No evidence logs found. Verified by manual oracle process.</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                       </div>
+                     )}
+                  </div>
+
+                  <div className="col-span-2 text-right font-mono text-[11px] font-semibold text-black/60">
+                    {new Date(contest.deadline).toLocaleDateString()}
+                  </div>
+
+                  <div className="col-span-3 flex justify-end items-center gap-3">
+                    {isOpen ? (
+                      <>
+                        <button onClick={() => handleQuickResolve(contest.id)} disabled={loading[contest.id]} className="font-mono bg-[#f0f0f0] text-black text-[10px] px-3 py-1 hover:bg-[#ccff00] transition-colors uppercase tracking-widest flex items-center gap-1">
+                          {loading[contest.id] ? "Resolving..." : <><Zap className="w-3 h-3"/> Auto</>}
+                        </button>
+                        <div className="flex text-[10px] font-mono font-bold tracking-widest">
+                           <button onClick={() => handleResolve(contest.id, true)} className="border border-black px-2 hover:bg-black hover:text-white transition">Y</button>
+                           <button onClick={() => handleResolve(contest.id, false)} className="border border-black border-l-0 px-2 hover:bg-black hover:text-white transition">N</button>
+                        </div>
+                      </>
+                    ) : (
+                      <span className="px-3 py-1 font-mono text-[9px] uppercase tracking-widest bg-[#f0f0f0] text-black">
+                        {contest.status}
+                      </span>
+                    )}
+                  </div>
+                </motion.div>
+              )
+            })}
+          </div>
+        </div>
+      </motion.div>
+      
+      {/* Create Modal */}
+      <AnimatePresence>
+        {showCreateModal && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center p-4 z-50 bg-white/80 backdrop-blur-md"
+            onClick={(e) => { if (e.target === e.currentTarget) { setShowCreateModal(false); setNewQuestion(""); setNewDeadline(""); } }}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 12 }}
+              className="max-w-xl w-full bg-white border-2 border-black p-10 shadow-[12px_12px_0_0_#ccff00]"
+            >
+              <div className="flex items-center justify-between border-b-[2px] border-black pb-4 mb-8">
+                <h2 className="font-display font-bold text-3xl">Deploy Contract</h2>
+                <button onClick={() => setShowCreateModal(false)} className="hover:rotate-90 transition-transform">
+                  <XIcon className="w-6 h-6" />
                 </button>
               </div>
 
-              <form onSubmit={handleCreateManualContest} className="space-y-4">
+              <form onSubmit={handleCreateManualContest} className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Contest Question *
-                  </label>
-                  <textarea
-                    value={newQuestion}
-                    onChange={(e) => setNewQuestion(e.target.value)}
-                    placeholder="Will Bitcoin reach $100,000 by the end of 2026?"
-                    required
-                    rows={3}
-                    className="w-full px-4 py-3 bg-neutral-950 border border-neutral-700 rounded text-white placeholder-gray-600 focus:outline-none focus:border-white resize-none"
+                  <label className="font-mono text-[10px] uppercase tracking-widest mb-3 block">Conditions / Question</label>
+                  <textarea value={newQuestion} onChange={(e) => setNewQuestion(e.target.value)}
+                    required rows={3} className="w-full bg-[#f0f0f0] border-0 outline-none p-4 font-mono text-xs focus:ring-2 focus:ring-[#ccff00]"
                   />
-                  <p className="text-xs text-gray-600 mt-1">
-                    Enter a clear yes/no question that can be objectively verified
-                  </p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-2">
-                    Resolution Deadline *
-                  </label>
-                  <input
-                    type="datetime-local"
-                    value={newDeadline}
-                    onChange={(e) => setNewDeadline(e.target.value)}
-                    required
-                    min={new Date().toISOString().slice(0, 16)}
-                    className="w-full px-4 py-3 bg-neutral-950 border border-neutral-700 rounded text-white focus:outline-none focus:border-white"
+                  <label className="font-mono text-[10px] uppercase tracking-widest mb-3 block">Expiration / Close Time</label>
+                  <input type="datetime-local" value={newDeadline} onChange={(e) => setNewDeadline(e.target.value)} required min={new Date().toISOString().slice(0, 16)}
+                    className="w-full bg-[#f0f0f0] border-0 outline-none p-4 font-mono text-xs focus:ring-2 focus:ring-[#ccff00]"
                   />
-                  <p className="text-xs text-gray-600 mt-1">
-                    When the contest should be resolved
-                  </p>
                 </div>
-
-                <div className="bg-neutral-950 border border-neutral-800 rounded p-3">
-                  <p className="text-xs text-gray-400">
-                    ⚠️ This will create a contest on-chain. Make sure all details are correct before submitting.
-                  </p>
-                </div>
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowCreateModal(false);
-                      setNewQuestion("");
-                      setNewDeadline("");
-                    }}
-                    className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-white font-semibold py-3 px-4 rounded transition border border-neutral-700"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={creating}
-                    className="flex-1 bg-white hover:bg-gray-200 text-black font-semibold py-3 px-4 rounded transition disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {creating ? "Creating..." : "Create Contest"}
-                  </button>
-                </div>
+                <button type="submit" disabled={creating} className="btn-editorial w-full flex items-center justify-center gap-2">
+                  {creating ? "Deploying..." : "Commit transaction"}
+                </button>
               </form>
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
         )}
-      </div>
-    </div>
+      </AnimatePresence>
+    </motion.div>
   );
 }

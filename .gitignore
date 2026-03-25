@@ -39,3 +39,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# agent-herald-admin local debug & logs
+/.agents/
+build_error.log
+contests_debug.json
+status.txt
+/supabase/
+*.log
+.vscode/

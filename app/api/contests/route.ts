@@ -1,11 +1,27 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function GET() {
-  const { data, error } = await supabaseAdmin
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const is_test = searchParams.get("is_test");
+  const status = searchParams.get("status");
+
+  let query = supabaseAdmin
     .from("contests")
     .select("*")
-    .order("deadline", { ascending: true }); // Sort by deadline (soonest first)
+    .order("deadline", { ascending: true });
+
+  if (is_test === "true") {
+    query = query.eq("is_test", true);
+  } else if (is_test === "false") {
+    query = query.eq("is_test", false);
+  }
+
+  if (status) {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return NextResponse.json(
@@ -14,6 +30,8 @@ export async function GET() {
     );
   }
 
+  // Wrap in object for consistent parsing if needed, but the current frontend expects data directly in some places
+  // and data.contests in others. Let's fix the frontend to be consistent with the array result.
   return NextResponse.json(data ?? []);
 }
 

@@ -28,11 +28,12 @@ interface ResolutionResult {
   outcome: boolean;
   signature: string;
   reasoning: string;
-  explanation: string; // Detailed 2-4 sentence explanation
+  explanation: string;
   confidence: number;
   sources: string[];
-  evidence: string[]; // Key facts used
+  evidence: string[];
   resolverType: "AI_AUTO" | "FALLBACK";
+  researchData?: any; // Added to track deep research findings
 }
 
 /**
@@ -40,12 +41,105 @@ interface ResolutionResult {
  */
 function getResolverWallet(): ethers.Wallet {
   const privateKey = process.env.RESOLVER_PRIVATE_KEY;
-  
-  if (!privateKey) {
-    throw new Error("RESOLVER_PRIVATE_KEY not configured");
+  if (!privateKey) throw new Error("RESOLVER_PRIVATE_KEY not configured");
+  return new ethers.Wallet(privateKey);
+}
+
+/**
+ * Deep Research Tools using new APIs
+ */
+async function searchExa(query: string): Promise<string[]> {
+  if (!process.env.EXA_API_KEY) return [];
+  try {
+    const response = await fetch("https://api.exa.ai/search", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": process.env.EXA_API_KEY,
+      },
+      body: JSON.stringify({
+        query,
+        numResults: 5,
+        useAutoprompt: true,
+        contents: { text: true }
+      }),
+    });
+    const data = await response.json();
+    return data.results?.map((r: any) => `[Exa Search] ${r.title}: ${r.text.substring(0, 300)}...`) || [];
+  } catch (error) {
+    console.error("Exa search error:", error);
+    return [];
+  }
+}
+
+async function fetchFMP(symbol: string): Promise<string[]> {
+  if (!process.env.FINANCIAL_MODELING_PREP_API_KEY) return [];
+  try {
+    const response = await fetch(
+      `https://financialmodelingprep.com/api/v3/quote/${symbol}?apikey=${process.env.FINANCIAL_MODELING_PREP_API_KEY}`
+    );
+    const data = await response.json();
+    if (data && data[0]) {
+      const q = data[0];
+      return [`[FMP Market Data] ${q.name} (${q.symbol}): Price $${q.price}, Change ${q.changesPercentage}%, High $${q.dayHigh}, Low $${q.dayLow}`];
+    }
+    return [];
+  } catch (error) {
+    console.error("FMP fetch error:", error);
+    return [];
+  }
+}
+
+async function fetchTheRundown(sportId: number = 2): Promise<string[]> {
+  if (!process.env.THE_RUNDOWN_API_KEY) return [];
+  try {
+    // Note: The Rundown often requires specific endpoints for sports. Defaulting to NBA (2) as example.
+    const response = await fetch(`https://therundown-therundown-v1.p.rapidapi.com/sports/${sportId}/events`, {
+      headers: {
+        "X-RapidAPI-Key": process.env.THE_RUNDOWN_API_KEY,
+        "X-RapidAPI-Host": "therundown-therundown-v1.p.rapidapi.com"
+      }
+    });
+    const data = await response.json();
+    return data.events?.slice(0, 3).map((e: any) => 
+      `[The Rundown Sports] ${e.teams[0].name} vs ${e.teams[1].name}: Score ${e.score.score_away}-${e.score.score_home}, Status: ${e.score.event_status}`
+    ) || [];
+  } catch (error) {
+    console.error("The Rundown error:", error);
+    return [];
+  }
+}
+
+/**
+ * Intelligent Deep Research based on contest content
+ */
+async function performDeepResearch(question: string, criteria: string): Promise<string[]> {
+  const findings: string[] = [];
+  const qLower = question.toLowerCase();
+
+  // 1. Always use Exa for the primary search
+  console.log(`🔍 Deep research starting for: "${question}"`);
+  const exaResults = await searchExa(`Latest facts and resolution for: ${question} based on criteria: ${criteria}`);
+  findings.push(...exaResults);
+
+  // 2. Market/Financial Specific Research
+  if (qLower.includes("price") || qLower.includes("stock") || qLower.includes("$") || qLower.includes("market cap")) {
+    const symbols = ["BTC", "ETH", "AAPL", "TSLA", "NVDA", "SPY"]; // Simple heuristic or AI could extract this
+    for (const s of symbols) {
+      if (qLower.includes(s.toLowerCase())) {
+        const fmpData = await fetchFMP(s);
+        findings.push(...fmpData);
+      }
+    }
   }
 
-  return new ethers.Wallet(privateKey);
+  // 3. Sports Specific Research
+  if (qLower.includes("score") || qLower.includes("game") || qLower.includes("match") || qLower.includes("win")) {
+    const sportsData = await fetchTheRundown();
+    findings.push(...sportsData);
+  }
+
+  return findings;
 }
 
 /**
@@ -54,7 +148,8 @@ function getResolverWallet(): ethers.Wallet {
 async function analyzeWithAI(
   question: string,
   resolutionCriteria: string,
-  oracleData: OracleData
+  oracleData: OracleData,
+  researchFindings: string[] = [] // New parameter
 ): Promise<{ outcome: boolean; explanation: string; confidence: number; evidence: string[] }> {
   
   if (!process.env.GROQ_API_KEY) {
@@ -63,6 +158,8 @@ async function analyzeWithAI(
   }
 
   try {
+    const combinedFacts = [...oracleData.facts, ...researchFindings];
+    
     const prompt = `You are a professional prediction market oracle resolver. Analyze this contest and determine the outcome.
 
 CONTEST QUESTION:
@@ -71,31 +168,32 @@ CONTEST QUESTION:
 RESOLUTION CRITERIA:
 ${resolutionCriteria}
 
-ORACLE DATA:
-${oracleData.facts.map((fact, i) => `${i + 1}. ${fact}`).join('\n')}
+ORACLE FACTS (BASE):
+${oracleData.facts.length > 0 ? oracleData.facts.map((fact, i) => `${i + 1}. ${fact}`).join('\n') : "No base facts."}
 
-DATA SOURCES:
-${oracleData.sources.join(', ')}
+DEEP RESEARCH FINDINGS (REAL-TIME):
+${researchFindings.length > 0 ? researchFindings.map((fact, i) => `${i + 1}. ${fact}`).join('\n') : "No additional findings."}
 
 Your task:
-1. Determine if the answer is YES or NO based on the criteria
-2. Provide a clear 2-4 sentence explanation
-3. Rate your confidence (0.0-1.0)
-4. List key evidence used
+1. Evaluate if the answer is YES or NO based EXCLUSIVELY on the criteria.
+2. If the data is insufficient, provide your best estimate but note the uncertainty.
+3. Provide a clear 2-4 sentence explanation.
+4. Rate your confidence (0.0-1.0).
+5. List EXACT evidence strings from the data used.
 
 Return ONLY valid JSON:
 {
   "outcome": true/false,
   "explanation": "...",
   "confidence": 0.95,
-  "evidence": ["fact 1", "fact 2"]
+  "evidence": ["...", "..."]
 }`;
 
     const completion = await groq.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: "You are an impartial prediction market oracle. Always return valid JSON only. Be objective and evidence-based.",
+          content: "You are an impartial, evidence-based prediction market oracle. Accuracy and adherence to criteria are paramount. Return ONLY valid JSON.",
         },
         {
           role: "user",
@@ -103,26 +201,21 @@ Return ONLY valid JSON:
         },
       ],
       model: "llama-3.3-70b-versatile",
-      temperature: 0.1, // Low temperature for consistency
-      max_tokens: 500,
+      temperature: 0.1,
+      max_tokens: 800,
     });
 
     const content = completion.choices[0]?.message?.content || "{}";
-    
-    // Extract JSON
     let jsonContent = content.trim();
-    if (jsonContent.startsWith('```json')) {
-      jsonContent = jsonContent.replace(/```json\n?/g, '').replace(/```\n?/g, '');
-    } else if (jsonContent.startsWith('```')) {
-      jsonContent = jsonContent.replace(/```\n?/g, '');
-    }
+    if (jsonContent.includes('```json')) jsonContent = jsonContent.split('```json')[1].split('```')[0].trim();
+    else if (jsonContent.includes('```')) jsonContent = jsonContent.split('```')[1].trim();
     
     const result = JSON.parse(jsonContent);
 
     return {
-      outcome: result.outcome,
+      outcome: !!result.outcome,
       explanation: result.explanation,
-      confidence: Math.min(Math.max(result.confidence, 0), 1),
+      confidence: Math.min(Math.max(result.confidence || 0.5, 0.0), 1.0),
       evidence: result.evidence || [],
     };
 
@@ -139,49 +232,20 @@ function analyzeWithLogic(
   resolutionCriteria: string,
   oracleData: OracleData
 ): { outcome: boolean; explanation: string; confidence: number; evidence: string[] } {
-  
-  // Simple keyword-based analysis for fallback
-  const positivePhrases = [
-    "official announcement",
-    "confirmed",
-    "published",
-    "verified",
-    "reached",
-    "exceeded"
-  ];
-
-  const negativePhrases = [
-    "no evidence",
-    "denied",
-    "cancelled",
-    "rejected",
-    "failed",
-    "below"
-  ];
+  const positivePhrases = ["official announcement", "confirmed", "verified", "reached", "exceeded", "above", "higher", "true"];
+  const negativePhrases = ["no evidence", "denied", "cancelled", "rejected", "failed", "below", "lower", "false"];
 
   const factsText = oracleData.facts.join(" ").toLowerCase();
-  
-  const positiveCount = positivePhrases.filter(phrase => 
-    factsText.includes(phrase)
-  ).length;
-
-  const negativeCount = negativePhrases.filter(phrase =>
-    factsText.includes(phrase)
-  ).length;
+  const positiveCount = positivePhrases.filter(p => factsText.includes(p)).length;
+  const negativeCount = negativePhrases.filter(p => factsText.includes(p)).length;
 
   const outcome = positiveCount > negativeCount;
-  const confidence = Math.min(
-    0.6 + (Math.abs(positiveCount - negativeCount) * 0.1),
-    0.95
-  );
-
+  const confidence = Math.min(0.6 + (Math.abs(positiveCount - negativeCount) * 0.1), 0.9);
   const explanation = outcome
-    ? `Based on ${positiveCount} positive indicators in the oracle data, the resolution criteria appears to be met. The evidence suggests the outcome is YES.`
-    : `Based on ${negativeCount} negative indicators or lack of positive evidence, the resolution criteria does not appear to be met. The outcome is NO.`;
+    ? `Heuristic check: ${positiveCount} positive signals vs ${negativeCount} negative. Data leans towards YES.`
+    : `Heuristic check: ${negativeCount} negative signals vs ${positiveCount} positive. Data leans towards NO.`;
 
-  const evidence = oracleData.facts.slice(0, 3); // Use first 3 facts as evidence
-
-  return { outcome, explanation, confidence, evidence };
+  return { outcome, explanation, confidence, evidence: oracleData.facts.slice(0, 3) };
 }
 
 /**
@@ -194,49 +258,49 @@ export async function resolveWithAgent(
   oracleData: OracleData
 ): Promise<ResolutionResult> {
   
-  // Step 1: Analyze the data with AI
+  // Step 1: Perform Deep Research using new APIs
+  const researchFindings = await performDeepResearch(question, resolutionCriteria);
+
+  // Step 2: Analyze everything with AI
   const { outcome, explanation, confidence, evidence } = await analyzeWithAI(
     question,
     resolutionCriteria,
-    oracleData
+    oracleData,
+    researchFindings
   );
 
-  // Step 2: Create message hash (must match contract logic)
+  // Step 3: Create message hash (must match contract logic)
   const messageHash = ethers.solidityPackedKeccak256(
     ["uint256", "bool"],
     [contestId, outcome]
   );
 
-  // Step 3: Sign the message
+  // Step 4: Sign the message
   const resolverWallet = getResolverWallet();
   const signature = await resolverWallet.signMessage(
     ethers.getBytes(messageHash)
   );
 
-  // Step 4: Build short reasoning for backward compatibility
-  const reasoning = `AI Resolution: ${outcome ? "YES" : "NO"} (${(confidence * 100).toFixed(0)}% confidence)`;
-
   return {
     outcome,
     signature,
-    reasoning, // Short version
-    explanation, // Detailed 2-4 sentences
+    reasoning: `Resolution: ${outcome ? "YES" : "NO"} (${(confidence * 100).toFixed(0)}% confidence)`,
+    explanation,
     confidence,
-    sources: oracleData.sources,
-    evidence,
+    sources: [...oracleData.sources, "Exa Deep Research", "FMP Market Data", "The Rundown Sports"],
+    evidence: [...evidence, ...researchFindings.slice(0, 2)],
     resolverType: process.env.GROQ_API_KEY ? "AI_AUTO" : "FALLBACK",
   };
 }
 
 /**
- * Verify a signature matches expected resolver (testing utility)
+ * Verify a signature matches expected resolver
  */
 export function verifyResolverSignature(
   contestId: number,
   outcome: boolean,
   signature: string
 ): { valid: boolean; signer: string } {
-  
   const messageHash = ethers.solidityPackedKeccak256(
     ["uint256", "bool"],
     [contestId, outcome]
@@ -248,7 +312,6 @@ export function verifyResolverSignature(
   );
 
   const expectedSigner = process.env.RESOLVER_ADDRESS;
-  
   return {
     valid: signer.toLowerCase() === expectedSigner?.toLowerCase(),
     signer

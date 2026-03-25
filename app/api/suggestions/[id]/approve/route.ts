@@ -77,14 +77,40 @@ export async function POST(
       }
     }
 
-    // If event parsing failed, try to get the latest contest ID from the contract
+    // If event parsing failed, try to get the contestCount from the contract
     if (!contestIdOnchain) {
-      console.warn("⚠️ Could not parse ContestCreated event, using transaction hash as reference");
-      console.warn("Transaction will succeed but contestId might need manual verification");
-      
-      // Use a temporary ID and mark it for manual verification
-      contestIdOnchain = `pending_${receipt.transactionHash.substring(2, 10)}`;
+      try {
+        console.log("⚠️ Event parsing failed, querying contract for contestCount...");
+        
+        // Verify contract is deployed
+        const contractAddress = await oracle.getAddress();
+        const code = await oracle.runner?.provider?.getCode(contractAddress);
+        console.log(`📝 Contract at ${contractAddress}, code length: ${code?.length || 0}`);
+        
+        if (!code || code === '0x') {
+          throw new Error(`No contract deployed at ${contractAddress}. Check CONTEST_ORACLE_ADDRESS in environment variables.`);
+        }
+        
+        const count = await oracle.contestCount();
+        console.log(`📊 contestCount returned: ${count}`);
+        
+        if (count.toString() === '0') {
+          throw new Error("contestCount is 0 - this may be the first contest or contract not initialized");
+        }
+        
+        contestIdOnchain = count.toString();
+        console.log(`✅ Got contestId from contestCount: ${contestIdOnchain}`);
+      } catch (e: any) {
+        console.error("❌ Failed to get contestId:", e.message);
+        console.error("Full error:", e);
+        throw new Error(`Cannot determine contest ID after transaction. Error: ${e.message}. Please verify contract address and RPC endpoint.`);
+      }
     }
+    
+    if (!contestIdOnchain || isNaN(Number(contestIdOnchain))) {
+      throw new Error(`Invalid contest ID: ${contestIdOnchain}. Cannot save to database.`);
+    }
+    
     console.log(`🎯 Contest created on-chain: #${contestIdOnchain}`);
 
     // 5. Save contest in DB
@@ -97,6 +123,7 @@ export async function POST(
       resolution_type: "ADMIN_ORACLE",
       tx_hash: receipt.hash,
       status: "OPEN",
+      social_buzz_score: suggestion.social_buzz_score || 0,
     });
 
     if (insertError) {

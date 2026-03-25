@@ -1,35 +1,35 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import Navbar from "./components/Navbar";
+import type { Metadata } from 'next';
+import { Syne, JetBrains_Mono } from 'next/font/google';
+import './globals.css';
+import EditorialLayout from './components/EditorialLayout';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const syne = Syne({ 
+  subsets: ['latin'],
+  variable: '--font-syne' 
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+const jetbrains = JetBrains_Mono({ 
+  subsets: ['latin'],
+  variable: '--font-mono' 
 });
 
 export const metadata: Metadata = {
-  title: "Agent Herald - AI-Powered Prediction Markets",
-  description: "Professional prediction market platform with blockchain transparency and AI-assisted resolution",
+  title: 'Agent Herald | Operating System',
+  description: 'Decentralized Intelligence Network',
 };
+
+import { Toaster } from "sonner";
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <Navbar />
-        {children}
+    <html lang="en" className="h-full">
+      <body className={`${syne.variable} ${jetbrains.variable} h-full antialiased bg-[#ffffff] text-[#111111]`}>
+        <EditorialLayout>{children}</EditorialLayout>
+        <Toaster position="bottom-right" theme="light" expand richColors />
       </body>
     </html>
   );

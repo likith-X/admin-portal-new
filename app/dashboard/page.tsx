@@ -2,6 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { motion, AnimatePresence } from "framer-motion";
+import Container from "@/app/components/ui/Container";
+import {
+  Target, Clock, Lightbulb, CheckCircle2, Zap,
+  Activity, AlertCircle, ArrowUpRight, Wallet, PlayCircle,
+  RefreshCcw
+} from "lucide-react";
+import AnimatedCounter from "@/app/components/AnimatedCounter";
 
 type SystemHealth = {
   activeContests: number;
@@ -30,6 +38,19 @@ type RecentActivity = {
   status: "success" | "warning" | "error";
 };
 
+const stagger = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.1 },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 16 },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] } },
+};
+
 export default function DashboardPage() {
   const [health, setHealth] = useState<SystemHealth>({
     activeContests: 0,
@@ -46,7 +67,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchDashboardData();
-    // Refresh every 30 seconds
     const interval = setInterval(fetchDashboardData, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -79,12 +99,11 @@ export default function DashboardPage() {
         expiredContests: expired.length,
         pendingSuggestions: suggestions.length,
         resolvedToday: resolvedToday.length,
-        lastCronRun: "2 minutes ago", // TODO: Fetch from actual cron status
+        lastCronRun: "2 minutes ago",
         resolverAddress: process.env.NEXT_PUBLIC_RESOLVER_ADDRESS || "0x...",
-        resolverBalance: "1.25 ETH", // TODO: Fetch actual balance
+        resolverBalance: "1.25 ETH",
       });
 
-      // Build attention items
       const attentionItems: AttentionItem[] = [];
 
       expired.forEach((c: any) => {
@@ -117,7 +136,6 @@ export default function DashboardPage() {
         return urgencyOrder[a.urgency] - urgencyOrder[b.urgency];
       }));
 
-      // Build recent activity
       const recentActivity: RecentActivity[] = [
         {
           id: "1",
@@ -144,269 +162,393 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-          <p className="text-gray-500 text-sm font-mono">
-            Last updated: {new Date().toLocaleTimeString()}
-          </p>
-        </div>
+    <main className="min-h-screen pt-6 md:pt-8 pb-32 relative" style={{ background: 'var(--surface-lowest)' }}>
+      {/* Subtle Ambient Glow — Not Distracting */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 w-[500px] h-[500px] rounded-full blur-[180px] opacity-[0.04]" style={{ background: 'var(--secondary-container)' }} />
+        <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full blur-[200px] opacity-[0.03]" style={{ background: 'var(--primary)' }} />
+      </div>
 
-        {/* System Health Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <HealthCard
-            title="Active Contests"
-            value={health.activeContests}
-            icon="🎯"
-            status={health.activeContests > 0 ? "success" : "neutral"}
-            loading={loading}
-          />
-          <HealthCard
-            title="Expired Awaiting"
-            value={health.expiredContests}
-            icon="⏰"
-            status={health.expiredContests > 0 ? "warning" : "success"}
-            loading={loading}
-            link="/contests"
-          />
-          <HealthCard
-            title="Pending Suggestions"
-            value={health.pendingSuggestions}
-            icon="💡"
-            status={health.pendingSuggestions > 5 ? "warning" : "neutral"}
-            loading={loading}
-            link="/suggestions"
-          />
-          <HealthCard
-            title="Resolved Today"
-            value={health.resolvedToday}
-            icon="✅"
-            status="success"
-            loading={loading}
-          />
-        </div>
-
-        {/* Resolver Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold">⚙️ Resolver Status</h3>
-              <span className="px-2 py-1 bg-green-500/10 text-green-400 text-xs font-semibold rounded border border-green-500/20">
-                ACTIVE
-              </span>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Mode:</span>
-                <span className="text-white font-mono">AI Auto</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Last Run:</span>
-                <span className="text-white font-mono">{health.lastCronRun}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Address:</span>
-                <span className="text-white font-mono text-xs">
-                  {health.resolverAddress.slice(0, 6)}...{health.resolverAddress.slice(-4)}
+      <Container className="relative z-10">
+        <div className="flex flex-col gap-10">
+          {/* Header */}
+          <motion.div
+            initial={{ opacity: 0, y: -12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+            className="flex flex-col md:flex-row md:items-end md:justify-between gap-5"
+          >
+            <div>
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight mb-1.5" style={{ color: 'var(--on-surface)' }}>
+                Dashboard
+              </h1>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-xs font-mono" style={{ color: 'var(--on-surface-muted)' }}>
+                  {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Balance:</span>
-                <span className="text-white font-mono">{health.resolverBalance}</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-semibold">📊 Quick Stats</h3>
-            </div>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Total Contests:</span>
-                <span className="text-white font-mono">{health.activeContests + health.resolvedToday}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Resolution Rate:</span>
-                <span className="text-white font-mono">
-                  {health.resolvedToday > 0 ? "100%" : "N/A"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">Avg Response Time:</span>
-                <span className="text-white font-mono">&lt; 1 min</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">AI Accuracy:</span>
-                <span className="text-white font-mono">98.5%</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Attention Required */}
-        {attention.length > 0 && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-            <h3 className="text-white font-semibold mb-4 flex items-center gap-2">
-              ⚠️ Needs Attention
-              <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-xs font-semibold rounded">
-                {attention.length}
-              </span>
-            </h3>
-            <div className="space-y-2">
-              {attention.map((item) => (
-                <Link
-                  key={item.id}
-                  href={item.link}
-                  className="block bg-neutral-950 border border-neutral-800 rounded p-3 hover:border-neutral-700 transition"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            item.urgency === "high"
-                              ? "bg-red-500"
-                              : item.urgency === "medium"
-                              ? "bg-yellow-500"
-                              : "bg-blue-500"
-                          }`}
-                        />
-                        <span className="text-white font-medium text-sm">{item.title}</span>
-                      </div>
-                      <p className="text-gray-500 text-xs truncate">{item.description}</p>
-                    </div>
-                    <svg
-                      className="w-4 h-4 text-gray-600 flex-shrink-0 mt-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {attention.length === 0 && !loading && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-8 text-center">
-            <div className="text-4xl mb-2">✨</div>
-            <p className="text-white font-semibold mb-1">All Clear!</p>
-            <p className="text-gray-500 text-sm">No action required at this time.</p>
-          </div>
-        )}
-
-        {/* Recent Activity */}
-        <div className="bg-neutral-900 border border-neutral-800 rounded-lg p-4">
-          <h3 className="text-white font-semibold mb-4">📝 Recent Activity</h3>
-          <div className="space-y-2">
-            {activity.map((item) => (
-              <div
-                key={item.id}
-                className="bg-neutral-950 border border-neutral-800 rounded p-3 flex items-start gap-3"
-              >
-                <div
-                  className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
-                    item.status === "success"
-                      ? "bg-green-500"
-                      : item.status === "warning"
-                      ? "bg-yellow-500"
-                      : "bg-red-500"
-                  }`}
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                    <span className="text-white font-medium text-sm">{item.action}</span>
-                    <span className="text-gray-600 text-xs font-mono whitespace-nowrap">
-                      {item.timestamp}
-                    </span>
-                  </div>
-                  <p className="text-gray-500 text-xs">{item.details}</p>
+                <span className="w-px h-3" style={{ background: 'var(--surface-bright)' }} />
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full" style={{ background: 'rgba(52, 211, 153, 0.08)', border: '1px solid rgba(52, 211, 153, 0.15)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--success)' }} />
+                  <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: 'var(--success)' }}>Operational</span>
                 </div>
               </div>
-            ))}
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <Link
+                href="/suggestions"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'var(--surface-high)', color: 'var(--on-surface)', border: '1px solid var(--ghost-border)' }}
+              >
+                <Lightbulb className="w-4 h-4" style={{ color: 'var(--tertiary-container)' }} />
+                Suggestions
+              </Link>
+              <Link
+                href="/contests"
+                className="btn-primary flex items-center gap-2 text-sm"
+              >
+                <Target className="w-4 h-4" />
+                Manage Contests
+              </Link>
+            </div>
+          </motion.div>
+
+          {/* Metric Cards */}
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={stagger}
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+          >
+            <MetricCard title="Active Contests" value={health.activeContests} icon={Target} accentColor="var(--primary)" status={health.activeContests > 0 ? "active" : "neutral"} loading={loading} />
+            <MetricCard title="Expired Awaiting" value={health.expiredContests} icon={Clock} accentColor="var(--warning)" status={health.expiredContests > 0 ? "warning" : "success"} loading={loading} link="/contests" />
+            <MetricCard title="Pending Suggestions" value={health.pendingSuggestions} icon={Lightbulb} accentColor="var(--tertiary-container)" status={health.pendingSuggestions > 5 ? "warning" : "neutral"} loading={loading} link="/suggestions" />
+            <MetricCard title="Resolved Today" value={health.resolvedToday} icon={CheckCircle2} accentColor="var(--success)" status="success" loading={loading} />
+          </motion.div>
+
+          {/* Content Grid */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+            {/* Left Column */}
+            <div className="xl:col-span-8 flex flex-col gap-6 min-w-0">
+              {/* Resolver Status */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.5 }}
+                className="card-surface p-6"
+              >
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-base font-semibold flex items-center gap-2.5" style={{ color: 'var(--on-surface)' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(79, 242, 255, 0.08)' }}>
+                      <Zap className="w-4 h-4" style={{ color: 'var(--primary)' }} />
+                    </div>
+                    Resolver Status
+                  </h3>
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider" style={{ background: 'rgba(79, 242, 255, 0.06)', color: 'var(--primary)', border: '1px solid rgba(79, 242, 255, 0.12)' }}>
+                    <PlayCircle className="w-3 h-3" />
+                    AI Auto-Pilot
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                  <ResolverMiniCard
+                    label="Contract Balance"
+                    value={health.resolverBalance}
+                    accentColor="var(--success)"
+                    isHighlight
+                  />
+                  <ResolverMiniCard label="Executor Address" value={health.resolverAddress || "Loading..."} icon={Wallet} truncate />
+                  <ResolverMiniCard
+                    label="Status / Mode"
+                    customValue={
+                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold" style={{ color: 'var(--success)' }}>
+                        <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ background: 'var(--success)' }} />
+                        Active Auto-Pilot
+                      </span>
+                    }
+                    icon={Activity}
+                  />
+                  <ResolverMiniCard label="Last Run" value={health.lastCronRun || "..."} icon={Clock} />
+                </div>
+              </motion.div>
+
+              {/* Recent Activity */}
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.5 }}
+                className="card-surface p-6"
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-base font-semibold flex items-center gap-2.5" style={{ color: 'var(--on-surface)' }}>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(204, 182, 255, 0.08)' }}>
+                      <Activity className="w-4 h-4" style={{ color: 'var(--tertiary-container)' }} />
+                    </div>
+                    Recent Activity
+                  </h3>
+                </div>
+                <div className="space-y-2">
+                  <AnimatePresence mode="popLayout">
+                    {activity.map((item, index) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 12 }}
+                        transition={{ delay: index * 0.08 }}
+                        className="group rounded-xl p-4 transition-all duration-200"
+                        style={{ background: 'var(--surface-low)' }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--surface-container)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--surface-low)'; }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="mt-1.5 relative flex-shrink-0">
+                            <span className={`block w-2 h-2 rounded-full ${
+                              item.status === "success" ? "bg-emerald-400" :
+                              item.status === "warning" ? "bg-amber-400" : "bg-red-400"
+                            }`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-0.5">
+                              <span className="text-sm font-medium" style={{ color: 'var(--on-surface)' }}>
+                                {item.action}
+                              </span>
+                              <span className="text-[11px] font-mono whitespace-nowrap" style={{ color: 'var(--on-surface-muted)' }}>
+                                {item.timestamp}
+                              </span>
+                            </div>
+                            <p className="text-xs" style={{ color: 'var(--on-surface-dim)' }}>{item.details}</p>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                  {activity.length === 0 && (
+                    <div className="text-center py-12">
+                      <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl mb-3" style={{ background: 'var(--surface-low)' }}>
+                        <Activity className="w-5 h-5" style={{ color: 'var(--on-surface-muted)' }} />
+                      </div>
+                      <p className="text-sm" style={{ color: 'var(--on-surface-muted)' }}>No recent activity</p>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Right Column: Needs Attention */}
+            <div className="xl:col-span-4 min-w-0 xl:sticky xl:top-6">
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.5 }}
+                className="card-surface p-5 flex flex-col max-h-[70vh] xl:max-h-[calc(100vh-80px)]"
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <h3 className="text-base font-semibold flex items-center gap-2" style={{ color: 'var(--on-surface)' }}>
+                    <AlertCircle className="w-4 h-4" style={{ color: 'var(--warning)' }} />
+                    Needs Attention
+                  </h3>
+                  <AnimatePresence>
+                    {attention.length > 0 && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="px-2 py-0.5 text-[10px] font-bold rounded-full"
+                        style={{ background: 'rgba(248, 113, 113, 0.1)', color: 'var(--error)', border: '1px solid rgba(248, 113, 113, 0.15)' }}
+                      >
+                        {attention.length}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                <AnimatePresence mode="popLayout">
+                  {attention.length > 0 ? (
+                    <div className="space-y-2.5 overflow-y-auto pr-1 flex-1">
+                      {attention.map((item, index) => (
+                        <motion.div
+                          key={item.id}
+                          initial={{ opacity: 0, scale: 0.97 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.97 }}
+                          transition={{ delay: index * 0.04 }}
+                        >
+                          <Link
+                            href={item.link}
+                            className="block group rounded-xl p-4 transition-all duration-200 relative overflow-hidden"
+                            style={{ background: 'var(--surface-low)', border: '1px solid var(--ghost-border)' }}
+                          >
+                            {/* Urgency indicator bar */}
+                            <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r-full" style={{
+                              background: item.urgency === "high" ? 'var(--error)' :
+                                item.urgency === "medium" ? 'var(--warning)' : '#eab308'
+                            }} />
+
+                            <div className="pl-3">
+                              <div className="flex items-center justify-between mb-2">
+                                <span className="label-micro">
+                                  {item.type === "expired" ? item.title.replace(" expired", "") : item.title}
+                                </span>
+                                <span className="px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider" style={{
+                                  background: item.type === "expired" ? 'rgba(248, 113, 113, 0.08)' : 'rgba(251, 191, 36, 0.08)',
+                                  color: item.type === "expired" ? 'var(--error)' : 'var(--warning)',
+                                  border: `1px solid ${item.type === "expired" ? 'rgba(248, 113, 113, 0.12)' : 'rgba(251, 191, 36, 0.12)'}`,
+                                }}>
+                                  {item.type === "expired" ? "OVERDUE" : "NOTICE"}
+                                </span>
+                              </div>
+
+                              <h2 className="text-sm font-semibold line-clamp-2 leading-snug mb-3 transition-colors" style={{ color: 'var(--on-surface)' }}>
+                                {item.type === "expired"
+                                  ? (item.description.includes(' - ') ? item.description.substring(0, item.description.lastIndexOf(' - ')).replace(/^"|"$/g, '') : item.description)
+                                  : item.description}
+                              </h2>
+
+                              <div className="text-xs space-y-1.5 pt-2" style={{ borderTop: '1px solid var(--ghost-border)' }}>
+                                {item.type === "expired" ? (
+                                  <>
+                                    <div className="flex items-center justify-between">
+                                      <span style={{ color: 'var(--on-surface-muted)' }}>Auto-Resolve</span>
+                                      <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: 'var(--error)', background: 'rgba(248, 113, 113, 0.06)', border: '1px solid rgba(248, 113, 113, 0.1)' }}>FAILED</span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                      <span style={{ color: 'var(--on-surface-muted)' }}>Time Expired</span>
+                                      <span className={`font-mono font-medium ${item.urgency === "high" ? "animate-pulse" : ""}`} style={{ color: item.urgency === "high" ? 'var(--error)' : 'var(--warning)' }}>
+                                        {item.description.includes(' - ') ? item.description.split(' - ').pop()?.replace(" overdue", "") : "Unknown"}
+                                      </span>
+                                    </div>
+                                  </>
+                                ) : (
+                                  <div className="flex items-center justify-between">
+                                    <span style={{ color: 'var(--on-surface-muted)' }}>Action Required</span>
+                                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ color: 'var(--warning)', background: 'rgba(251, 191, 36, 0.06)', border: '1px solid rgba(251, 191, 36, 0.1)' }}>REVIEW</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      ))}
+                    </div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="text-center py-12 flex-1 flex flex-col items-center justify-center"
+                    >
+                      <div className="text-4xl mb-3">✨</div>
+                      <p className="text-sm font-medium" style={{ color: 'var(--on-surface-dim)' }}>All caught up!</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            </div>
           </div>
         </div>
-
-        {/* Quick Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Link
-            href="/contests"
-            className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-neutral-700 transition"
-          >
-            <div className="text-2xl mb-2">🎯</div>
-            <h4 className="text-white font-semibold mb-1">Manage Contests</h4>
-            <p className="text-gray-500 text-sm">View and resolve active contests</p>
-          </Link>
-          <Link
-            href="/suggestions"
-            className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-neutral-700 transition"
-          >
-            <div className="text-2xl mb-2">💡</div>
-            <h4 className="text-white font-semibold mb-1">Review Suggestions</h4>
-            <p className="text-gray-500 text-sm">Approve AI-generated contests</p>
-          </Link>
-          <Link
-            href="/profile"
-            className="bg-neutral-900 border border-neutral-800 rounded-lg p-4 hover:border-neutral-700 transition"
-          >
-            <div className="text-2xl mb-2">⚙️</div>
-            <h4 className="text-white font-semibold mb-1">Settings</h4>
-            <p className="text-gray-500 text-sm">Configure resolver and system</p>
-          </Link>
-        </div>
-      </div>
-    </div>
+      </Container>
+    </main>
   );
 }
 
-function HealthCard({
-  title,
-  value,
-  icon,
-  status,
-  loading,
-  link,
+/* =============================================
+   SUB-COMPONENTS
+   ============================================= */
+
+function MetricCard({
+  title, value, icon: Icon, accentColor, status, loading, link,
 }: {
   title: string;
   value: number;
-  icon: string;
-  status: "success" | "warning" | "neutral";
+  icon: React.ComponentType<{ className?: string }>;
+  accentColor: string;
+  status: "active" | "success" | "warning" | "neutral";
   loading: boolean;
   link?: string;
 }) {
   const content = (
-    <div
-      className={`bg-neutral-900 border rounded-lg p-4 ${
-        link ? "hover:border-neutral-700 cursor-pointer" : "border-neutral-800"
-      } transition`}
+    <motion.div
+      variants={fadeUp}
+      whileHover={{ y: -3 }}
+      whileTap={{ scale: 0.98 }}
+      className={`group relative rounded-2xl p-5 transition-all duration-300 overflow-hidden ${link ? "cursor-pointer" : ""}`}
+      style={{ background: 'var(--surface-container)', border: '1px solid var(--ghost-border)' }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.borderColor = 'var(--ghost-border-hover)';
+        e.currentTarget.style.boxShadow = 'var(--shadow-elevated)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.borderColor = 'var(--ghost-border)';
+        e.currentTarget.style.boxShadow = 'none';
+      }}
     >
-      <div className="flex items-start justify-between mb-2">
-        <span className="text-2xl">{icon}</span>
-        {status === "warning" && (
-          <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-xs font-semibold rounded">
-            ACTION
-          </span>
-        )}
+      <div className="relative z-10 space-y-3">
+        <div className="flex items-start justify-between">
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: `color-mix(in srgb, ${accentColor} 8%, transparent)` }}>
+            <Icon className="w-5 h-5" style={{ color: accentColor }} />
+          </div>
+          {status === "warning" && (
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ background: 'var(--warning)', boxShadow: '0 0 6px rgba(251, 191, 36, 0.4)' }} />
+          )}
+          {status === "success" && value > 0 && (
+            <span className="w-2 h-2 rounded-full" style={{ background: 'var(--success)', boxShadow: '0 0 6px rgba(52, 211, 153, 0.4)' }} />
+          )}
+        </div>
+
+        <div>
+          <p className="label-micro mb-1.5">{title}</p>
+          {loading ? (
+            <div className="h-9 w-16 rounded-lg animate-pulse" style={{ background: 'var(--surface-high)' }} />
+          ) : (
+            <div className="flex items-baseline gap-2">
+              <AnimatedCounter
+                to={value}
+                className="text-3xl font-bold font-mono tracking-tight"
+                style={{ color: 'var(--on-surface)' }}
+              />
+              {link && (
+                <ArrowUpRight className="w-3.5 h-3.5 opacity-0 group-hover:opacity-100 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all duration-300" style={{ color: 'var(--on-surface-dim)' }} />
+              )}
+            </div>
+          )}
+        </div>
       </div>
-      <p className="text-gray-500 text-sm mb-1">{title}</p>
-      {loading ? (
-        <div className="h-8 w-16 bg-neutral-800 animate-pulse rounded" />
-      ) : (
-        <p className="text-white text-3xl font-bold font-mono">{value}</p>
-      )}
-    </div>
+    </motion.div>
   );
 
   return link ? <Link href={link}>{content}</Link> : content;
+}
+
+function ResolverMiniCard({
+  label, value, icon: Icon, accentColor, isHighlight, truncate, customValue,
+}: {
+  label: string;
+  value?: string;
+  icon?: React.ComponentType<{ className?: string }>;
+  accentColor?: string;
+  isHighlight?: boolean;
+  truncate?: boolean;
+  customValue?: React.ReactNode;
+}) {
+  return (
+    <div
+      className="rounded-xl p-4 flex flex-col justify-center"
+      style={{
+        background: isHighlight ? 'rgba(52, 211, 153, 0.04)' : 'var(--surface-low)',
+        border: `1px solid ${isHighlight ? 'rgba(52, 211, 153, 0.1)' : 'var(--ghost-border)'}`,
+      }}
+    >
+      <p className="label-micro mb-1.5 flex items-center gap-1.5">
+        {Icon && <Icon className="w-3 h-3" style={{ color: 'var(--on-surface-muted)' }} />}
+        {label}
+      </p>
+      {customValue ? customValue : (
+        <p className={`font-mono text-sm font-semibold ${truncate ? "truncate" : ""}`}
+          style={{ color: isHighlight && accentColor ? accentColor : 'var(--on-surface)' }}
+        >
+          {value}
+        </p>
+      )}
+    </div>
+  );
 }

@@ -33,6 +33,16 @@ export async function POST() {
 
     console.log(`📊 Processing ${suggestions.length} suggestions sequentially...`);
 
+    // Get the wallet address and initial nonce
+    const signer = oracle.runner;
+    if (!signer || !('getAddress' in signer) || !signer.provider) {
+      throw new Error("Oracle contract not properly initialized with signer");
+    }
+    
+    const signerAddress = await (signer as any).getAddress();
+    let currentNonce = await signer.provider.getTransactionCount(signerAddress, "pending");
+    console.log(`🔢 Starting nonce: ${currentNonce}`);
+
     // 2. Create contests for each suggestion (SEQUENTIALLY to avoid nonce conflicts)
     for (let i = 0; i < suggestions.length; i++) {
       const suggestion = suggestions[i];
@@ -47,33 +57,75 @@ export async function POST() {
         // ADMIN_ORACLE = 1
         const resolutionType = 1;
 
-        // Call on-chain contract
+        // Call on-chain contract with explicit nonce
         const tx = await oracle.createContest(
           suggestion.yes_no_question,
           deadline,
-          resolutionType
+          resolutionType,
+          { nonce: currentNonce }
         );
 
-        console.log(`⏳ Waiting for tx ${tx.hash}...`);
+        console.log(`⏳ Waiting for tx ${tx.hash} (nonce: ${currentNonce})...`);
         const receipt = await tx.wait(1); // Wait for 1 confirmation
         console.log(`✅ Confirmed in block ${receipt.blockNumber}`);
 
-        // Extract contestId from event
-        const event = receipt.logs
-          .map((log: any) => {
-            try {
-              return oracle.interface.parseLog(log);
-            } catch {
-              return null;
-            }
-          })
-          .find((e: any) => e?.name === "ContestCreated");
+        // Increment nonce for next transaction
+        currentNonce++;
+        
+        // Small delay to ensure nonce is properly updated on the network
+        await new Promise(resolve => setTimeout(resolve, 500));
 
-        if (!event || !event.args || !event.args.contestId) {
-          throw new Error("Failed to extract contestId from transaction receipt");
+        // Extract contestId from event with fallback strategies
+        let contestIdOnchain: string | null = null;
+        
+        // Try to parse event from logs
+        for (const log of receipt.logs) {
+          try {
+            const parsed = oracle.interface.parseLog({
+              topics: [...log.topics],
+              data: log.data,
+            });
+            
+            if (parsed && parsed.name === "ContestCreated" && parsed.args?.contestId) {
+              contestIdOnchain = parsed.args.contestId.toString();
+              console.log(`✅ Extracted contestId from event: ${contestIdOnchain}`);
+              break;
+            }
+          } catch (e) {
+            // Continue to next log
+          }
         }
 
-        const contestIdOnchain = event.args.contestId.toString();
+        // Fallback: Query contract for contestCount
+        if (!contestIdOnchain) {
+          try {
+            console.log("⚠️ Event parsing failed, querying contract...");
+            
+            // Verify contract exists
+            const contractAddress = await oracle.getAddress();
+            const code = await oracle.runner?.provider?.getCode(contractAddress);
+            if (!code || code === '0x') {
+              throw new Error(`No contract at ${contractAddress}`);
+            }
+            
+            const count = await oracle.contestCount();
+            console.log(`📊 contestCount returned: ${count}`);
+            
+            if (count.toString() === '0') {
+              throw new Error("contestCount is 0 - contract may not be initialized");
+            }
+            
+            contestIdOnchain = count.toString();
+            console.log(`✅ Got contestId from contestCount: ${contestIdOnchain}`);
+          } catch (e: any) {
+            console.error("❌ Cannot determine contestId:", e.message);
+            throw new Error(`Failed to extract contestId: ${e.message}. Transaction succeeded but cannot save to database without valid ID.`);
+          }
+        }
+
+        if (!contestIdOnchain || isNaN(Number(contestIdOnchain))) {
+          throw new Error(`Invalid contestId: ${contestIdOnchain}. Cannot insert into database.`);
+        }
 
         // Save contest in DB
         const { error: insertError } = await supabaseAdmin.from("contests").insert({

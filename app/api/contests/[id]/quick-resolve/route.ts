@@ -9,6 +9,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getContestOracle } from "@/lib/contestOracleClient";
 import { resolveWithAgent } from "@/services/resolverAgent";
+import { fetchOracleData } from "@/lib/oracleDataFetcher";
 
 
 
@@ -40,17 +41,37 @@ export async function POST(
       );
     }
 
+    // Match contract guard: resolveContest() requires block.timestamp >= deadline when contest is OPEN.
+    // Return a clear API error instead of a generic estimateGas revert.
+    const nowMs = Date.now();
+    const deadlineMs = new Date(contest.deadline).getTime();
+    if (!Number.isFinite(deadlineMs)) {
+      return NextResponse.json(
+        { error: "Invalid contest deadline in database" },
+        { status: 400 }
+      );
+    }
+
+    if (nowMs < deadlineMs) {
+      return NextResponse.json(
+        {
+          error: "Contest deadline not reached",
+          details: {
+            now: new Date(nowMs).toISOString(),
+            deadline: new Date(deadlineMs).toISOString(),
+            secondsRemaining: Math.ceil((deadlineMs - nowMs) / 1000),
+          },
+        },
+        { status: 400 }
+      );
+    }
+
     console.log(`🤖 Quick resolving contest #${contest.contest_id_onchain}: ${contest.question}`);
 
-    // Mock oracle data (replace with real data fetching in production)
-    const oracleData = {
-      facts: [
-        `Contest: ${contest.question}`,
-        `Deadline: ${new Date(contest.deadline).toLocaleDateString()}`,
-        "Status: Expired, requires resolution",
-      ],
-      sources: ["Quick Resolve"],
-    };
+    // Fetch real oracle data (crypto prices, news, etc.)
+    console.log(`📊 Fetching real-time oracle data...`);
+    const oracleData = await fetchOracleData(contest.question);
+    console.log(`📊 Got ${oracleData.facts.length} facts from ${oracleData.sources.join(', ')}`);
 
     // Use resolver agent to determine outcome with AI
     const resolution = await resolveWithAgent(
@@ -69,6 +90,14 @@ export async function POST(
 
     // Submit to blockchain
     const oracle = getContestOracle();
+
+    // Preflight call to capture exact revert reason (e.g. invalid signature, wrong signer, already resolved)
+    await oracle.resolveContest.staticCall(
+      contest.contest_id_onchain,
+      resolution.outcome,
+      resolution.signature
+    );
+
     const tx = await oracle.resolveContest(
       contest.contest_id_onchain,
       resolution.outcome,
