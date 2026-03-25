@@ -524,7 +524,7 @@ function ResolverMiniCard({
 }: {
   label: string;
   value?: string;
-  icon?: React.ComponentType<{ className?: string }>;
+  icon?: LucideIcon;
   accentColor?: string;
   isHighlight?: boolean;
   truncate?: boolean;
