@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { Globe, Zap, RefreshCcw, ExternalLink, Search } from "lucide-react";
 
 type NewsItem = {
@@ -41,21 +41,22 @@ export default function DailyNewsPage() {
       if (!res.ok) throw new Error("Connection to Oracle failed");
       const data = await res.json();
       setNews(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) setError(err.message);
+      else setError(String(err));
     } finally {
       setLoading(false);
     }
   }
 
-  const containerVars = {
+  const containerVars: Variants = {
     hidden: { opacity: 0 },
-    show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.1 }}
+    show: { opacity: 1, transition: { staggerChildren: 0.05, delayChildren: 0.1 } }
   };
 
-  const itemVars = {
+  const itemVars: Variants = {
     hidden: { opacity: 0, y: 30 },
-    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 }}
+    show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } as const }
   };
 
   return (

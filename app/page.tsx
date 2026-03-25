@@ -1,10 +1,10 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, Variants } from "framer-motion";
 import { ArrowUpRight, ArrowDownRight, Globe, TrendingUp } from "lucide-react";
 
 export default function LuxuryDashboard() {
-  const containerVars = {
+  const containerVars: Variants = {
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
@@ -12,11 +12,11 @@ export default function LuxuryDashboard() {
     }
   };
 
-  const itemVars = {
+  const itemVars: Variants = {
     hidden: { opacity: 0, y: 30 },
     show: { 
       opacity: 1, y: 0, 
-      transition: { type: "spring", stiffness: 300, damping: 24 }
+      transition: { type: "spring", stiffness: 300, damping: 24 } as const
     }
   };
 
@@ -110,7 +110,7 @@ export default function LuxuryDashboard() {
   );
 }
 
-function MarketTrend({ asset, category, currentPrice, change, data }: any) {
+function MarketTrend({ asset, category, currentPrice, change, data }: { asset: string, category: string, currentPrice: string, change: string, data: number[] }) {
   const isPositive = change.startsWith("+");
   const max = Math.max(...data);
   const min = Math.min(...data);
@@ -158,7 +158,7 @@ function MarketTrend({ asset, category, currentPrice, change, data }: any) {
   )
 }
 
-function DataStat({ title, value, trend, isPositive }: any) {
+function DataStat({ title, value, trend, isPositive }: { title: string, value: string, trend: string, isPositive: boolean }) {
   return (
     <div className="flex flex-col border-l border-black/10 pl-6 py-2 transition-all hover:border-black duration-500">
       <div className="font-mono text-[10px] uppercase tracking-widest text-black/40 mb-3">{title}</div>
@@ -173,7 +173,7 @@ function DataStat({ title, value, trend, isPositive }: any) {
   );
 }
 
-function DataRow({ id, title, agent, amount, status }: any) {
+function DataRow({ id, title, agent, amount, status }: { id: string, title: string, agent: string, amount: string, status: string }) {
   const getStatusStyle = (s: string) => {
     switch(s) {
       case 'Resolved': return "bg-[#ccff00] text-black border-transparent";

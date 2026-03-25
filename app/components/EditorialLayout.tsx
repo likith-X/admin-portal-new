@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import { Hexagon, PanelLeftOpen, PanelLeftClose, LayoutDashboard, Flag, MessageSquare, Newspaper, Settings, Layers, Hash, Search, X as XIcon, Loader2, LogOut, Activity, Key, Globe, TrendingUp, Zap, FlaskConical } from "lucide-react";
+import { Hexagon, PanelLeftOpen, PanelLeftClose, LayoutDashboard, Flag, MessageSquare, Newspaper, Settings, Layers, Hash, Search, X as XIcon, Loader2, LogOut, Activity, Key, Globe, TrendingUp, Zap, FlaskConical, LucideIcon } from "lucide-react";
 
 type SearchResult = {
   id: string;
@@ -386,7 +386,7 @@ export default function EditorialLayout({ children }: { children: React.ReactNod
   );
 }
 
-function AgentBadge({ label, icon: Icon, nodeName }: { label: string, icon: any, nodeName: string }) {
+function AgentBadge({ label, icon: Icon, nodeName }: { label: string, icon: LucideIcon, nodeName: string }) {
   const [status, setStatus] = useState<any>(null);
 
   useEffect(() => {
@@ -418,7 +418,7 @@ function AgentBadge({ label, icon: Icon, nodeName }: { label: string, icon: any,
   );
 }
 
-function NavItem({ label, href, isActive, icon: Icon, isCollapsed }: any) {
+function NavItem({ label, href, isActive, icon: Icon, isCollapsed }: { label: string, href: string, isActive: boolean, icon: LucideIcon, isCollapsed: boolean }) {
   return (
     <Link href={href} className={`w-full relative group px-3 py-3 flex items-center overflow-hidden rounded-md hover:bg-black/5 transition-colors ${isCollapsed ? 'justify-center' : 'justify-start gap-4'}`}>
       <div className={`relative z-10 flex items-center justify-center shrink-0 w-5 h-5 transition-colors duration-300 ${
