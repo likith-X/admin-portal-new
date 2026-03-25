@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, useScroll, useTransform, AnimatePresence } from "framer-motion";
-import { Hexagon, PanelLeftOpen, PanelLeftClose, LayoutDashboard, Flag, MessageSquare, Newspaper, Settings, Layers, Hash, Search, X as XIcon, Loader2, LogOut, Activity, Key, Globe, TrendingUp, Zap, FlaskConical, LucideIcon } from "lucide-react";
+import { Hexagon, PanelLeftOpen, PanelLeftClose, LayoutDashboard, Flag, MessageSquare, Newspaper, Settings, Layers, Hash, Search, X as XIcon, Loader2, LogOut, Activity, Key, Globe, TrendingUp, Zap, FlaskConical, LucideIcon, Menu } from "lucide-react";
 
 type SearchResult = {
   id: string;
@@ -22,6 +22,7 @@ export default function EditorialLayout({ children }: { children: React.ReactNod
 
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Search state
   const [searchQuery, setSearchQuery] = useState("");
@@ -175,8 +176,89 @@ export default function EditorialLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-white text-[#111111] font-sans selection:bg-[#ccff00] selection:text-black">
-      {/* Collapsible Sidebar Rail */}
+    <div className="flex h-[100dvh] overflow-hidden bg-white text-[#111111] font-sans selection:bg-[#ccff00] selection:text-black">
+      {/* Mobile Drawer Backdrop */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 bg-black/40 backdrop-blur-md z-[60] lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Drawer Content */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <motion.div
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed inset-y-0 left-0 w-[280px] bg-white z-[70] lg:hidden flex flex-col shadow-2xl"
+          >
+            <div className="p-8 border-b border-black/5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-black flex items-center justify-center rounded-sm">
+                  <Hexagon className="w-4 h-4 text-white" />
+                </div>
+                <h1 className="font-display font-bold text-lg tracking-wider uppercase">AgentHerald</h1>
+              </div>
+              <button 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="p-2 -mr-2 hover:bg-black/5 rounded-full transition-colors"
+                aria-label="Close Menu"
+              >
+                <XIcon className="w-5 h-5 text-black/40" />
+              </button>
+            </div>
+
+            <nav className="flex-1 py-8 px-6 space-y-6 overflow-y-auto">
+              <div className="space-y-1">
+                <div className="text-[10px] font-mono text-black/40 uppercase tracking-widest px-3 mb-4">Core Modules</div>
+                <NavItem icon={LayoutDashboard} label="System Overview" href="/" isActive={pathname === "/"} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+                <NavItem icon={Flag} label="Live Contests" href="/contests" isActive={pathname === "/contests"} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+                <NavItem icon={MessageSquare} label="Suggestions" href="/suggestions" isActive={pathname === "/suggestions"} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+                <NavItem icon={Newspaper} label="Daily Hot News" href="/news" isActive={pathname === "/news"} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+              </div>
+              <div className="space-y-1 pt-6 border-t border-black/5">
+                <div className="text-[10px] font-mono text-black/40 uppercase tracking-widest px-3 mb-4">Configuration</div>
+                <NavItem icon={FlaskConical} label="Test Laboratory" href="/test-lab" isActive={pathname === "/test-lab"} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+                <NavItem icon={Key} label="Invite Keys" href="/invites" isActive={pathname === "/invites"} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+                <NavItem icon={Activity} label="System Matrix" href="/status" isActive={pathname === "/status"} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+                <NavItem icon={Layers} label="Workspaces" href="#" isActive={false} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+                <NavItem icon={Settings} label="Global Settings" href="#" isActive={false} isCollapsed={false} onClick={() => setIsMobileMenuOpen(false)} />
+              </div>
+            </nav>
+
+            <div className="p-8 border-t border-black/5 space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-[#f0f0f0] rounded-full flex items-center justify-center">
+                  <span className="font-display font-bold text-sm">AH</span>
+                </div>
+                <div>
+                  <div className="text-sm font-display font-bold">Admin Root</div>
+                  <div className="text-[11px] font-mono text-black/50">Root Privileges</div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  document.cookie = "ah_admin_invite_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+                  router.push("/login");
+                }}
+                className="flex items-center gap-3 w-full p-3 rounded-lg text-red-500 hover:bg-red-50 text-sm font-medium transition-colors border border-red-100"
+              >
+                <LogOut className="w-4 h-4" />
+                Logout Session
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <motion.aside 
         animate={{ width: isSidebarOpen ? 320 : 88 }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
@@ -267,7 +349,7 @@ export default function EditorialLayout({ children }: { children: React.ReactNod
       <div className="flex-1 flex flex-col h-[100dvh] overflow-hidden relative bg-white">
         <motion.header 
           style={{ opacity: headerOpacity, y: headerY }}
-          className="h-24 px-6 lg:px-10 flex border-b border-black/5 items-center justify-between sticky top-0 bg-white/90 backdrop-blur-xl z-30 shrink-0"
+          className="h-16 lg:h-24 px-4 lg:px-10 flex border-b border-black/5 items-center justify-between sticky top-0 bg-white/90 backdrop-blur-xl z-30 shrink-0"
         >
           <div className="flex items-center gap-4">
              {/* Toggle Button */}
@@ -278,12 +360,32 @@ export default function EditorialLayout({ children }: { children: React.ReactNod
              >
                 {isSidebarOpen ? <PanelLeftClose className="w-5 h-5" /> : <PanelLeftOpen className="w-5 h-5" />}
              </button>
-             <div className="lg:hidden flex items-center gap-2">
-               <div className="w-6 h-6 bg-black flex items-center justify-center rounded-sm">
-                 <Hexagon className="w-3.5 h-3.5 text-white" />
-               </div>
-             </div>
+             
+             {/* Mobile Menu Button */}
+              <button 
+                onClick={() => setIsMobileMenuOpen(true)} 
+                className="lg:hidden flex w-10 h-10 items-center justify-center rounded-lg bg-black text-white hover:bg-black/80 transition-all shadow-lg shadow-black/10 active:scale-95"
+                aria-label="Open Menu"
+              >
+                <Menu className="w-5 h-5" />
+              </button>
+
+              <div className="lg:hidden flex items-center gap-2 ml-2">
+                <div className="w-8 h-8 bg-black flex items-center justify-center rounded-lg shadow-lg shadow-black/10">
+                  <Hexagon className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-display font-bold text-xs tracking-widest uppercase hidden sm:block">Herald</span>
+              </div>
           </div>
+          
+          {/* Mobile Search Button */}
+          <button 
+            onClick={() => setSearchOpen(true)}
+            className="md:hidden flex w-10 h-10 items-center justify-center rounded-lg hover:bg-black/5 transition-all text-black/60"
+            aria-label="Search"
+          >
+            <Search className="w-5 h-5" />
+          </button>
           
           {/* Global Search Bar */}
           <div className="flex-1 max-w-xl hidden md:block relative ml-2 lg:ml-6" ref={dropdownRef}>
@@ -370,11 +472,11 @@ export default function EditorialLayout({ children }: { children: React.ReactNod
                   nodeName="AMM_AGENT" 
                 />
              </div>
-             <div className="hidden sm:block">
-               <button className="btn-editorial text-[11px] whitespace-nowrap bg-black text-[#ccff00] hover:bg-[#ccff00] hover:text-black">
-                 Deploy Market
-               </button>
-             </div>
+              <div className="block">
+                <button className="btn-editorial text-[10px] lg:text-[11px] px-3 lg:px-6 py-2 bg-black text-[#ccff00] hover:bg-[#ccff00] hover:text-black rounded-lg shadow-lg shadow-black/5 active:scale-95 transition-all whitespace-nowrap">
+                  Deploy Market
+                </button>
+              </div>
           </div>
         </motion.header>
 
@@ -418,9 +520,13 @@ function AgentBadge({ label, icon: Icon, nodeName }: { label: string, icon: Luci
   );
 }
 
-function NavItem({ label, href, isActive, icon: Icon, isCollapsed }: { label: string, href: string, isActive: boolean, icon: LucideIcon, isCollapsed: boolean }) {
+function NavItem({ label, href, isActive, icon: Icon, isCollapsed, onClick }: { label: string, href: string, isActive: boolean, icon: LucideIcon, isCollapsed: boolean, onClick?: () => void }) {
   return (
-    <Link href={href} className={`w-full relative group px-3 py-3 flex items-center overflow-hidden rounded-md hover:bg-black/5 transition-colors ${isCollapsed ? 'justify-center' : 'justify-start gap-4'}`}>
+    <Link 
+      href={href} 
+      onClick={onClick}
+      className={`w-full relative group px-3 py-3 flex items-center overflow-hidden rounded-md hover:bg-black/5 transition-colors ${isCollapsed ? 'justify-center' : 'justify-start gap-4'}`}
+    >
       <div className={`relative z-10 flex items-center justify-center shrink-0 w-5 h-5 transition-colors duration-300 ${
         isActive ? "text-[#111111]" : "text-black/50 group-hover:text-[#111111]"
       }`}

@@ -218,7 +218,7 @@ export default function DashboardPage() {
             initial="hidden"
             animate="visible"
             variants={stagger}
-            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+            className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4"
           >
             <MetricCard title="Active Contests" value={health.activeContests} icon={Target} accentColor="var(--primary)" status={health.activeContests > 0 ? "active" : "neutral"} loading={loading} />
             <MetricCard title="Expired Awaiting" value={health.expiredContests} icon={Clock} accentColor="var(--warning)" status={health.expiredContests > 0 ? "warning" : "success"} loading={loading} link="/contests" />

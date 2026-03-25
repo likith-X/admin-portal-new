@@ -187,14 +187,14 @@ export default function ContestsPage() {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: { staggerChildren: 0.1 } }}
-      className="max-w-6xl mx-auto space-y-24 pb-20"
+      className="max-w-6xl mx-auto space-y-16 md:space-y-24 pb-20"
     >
       {/* Header Array */}
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-4xl">
-        <h2 className="font-display font-bold text-6xl md:text-7xl leading-[1.05] tracking-tight">
-          Prediction Markets <br/> & Network Contracts.
+        <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-7xl leading-[1.1] md:leading-[1.05] tracking-tight">
+          Prediction Markets <br className="hidden sm:block" /> & Network Contracts.
         </h2>
-        <p className="font-mono text-sm leading-relaxed text-black/60 max-w-xl">
+        <p className="font-mono text-[13px] md:text-sm leading-relaxed text-black/60 max-w-xl">
           Manage, deploy, and execute smart-contract resolutions via autonomous AI arbitrators and external global state synchronizations.
         </p>
 
@@ -218,7 +218,7 @@ export default function ContestsPage() {
         </div>
 
         {/* Search Interface */}
-        <div className="pt-8 w-full max-w-2xl relative group">
+        <div className="pt-4 md:pt-8 w-full max-w-2xl relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-2 text-black/40 group-focus-within:text-black transition-colors">
              <div className="w-5 h-5 border border-current rounded-[3px] flex items-center justify-center">
                 <div className="w-1 h-3 bg-current rotate-12 -ml-0.5" />
@@ -229,25 +229,26 @@ export default function ContestsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Query network memory..."
-            className="w-full bg-white border border-black/10 h-14 pl-14 pr-6 rounded-full font-mono text-sm outline-none focus:border-black transition-all shadow-sm hover:shadow-md placeholder:text-black/20"
+            className="w-full bg-white border border-black/10 h-12 md:h-14 pl-12 md:pl-14 pr-6 rounded-full font-mono text-[13px] md:text-sm outline-none focus:border-black transition-all shadow-sm hover:shadow-md placeholder:text-black/20"
           />
         </div>
       </motion.div>
 
       {/* Tabs / Control Filters */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-        <div className="flex items-end justify-between border-b-[2px] border-black pb-4 mb-4">
-          <div className="flex items-center gap-6">
-            <h3 className="font-display font-bold text-2xl tracking-tight">Active Matrix</h3>
-            <div className="flex gap-4 font-mono text-[10px] uppercase tracking-widest">
+        <div className="flex flex-col md:flex-row md:items-end justify-between border-b-[2px] border-black pb-4 mb-6 gap-6">
+          <div className="flex items-center gap-4 md:gap-6">
+            <h3 className="font-display font-bold text-xl md:text-2xl tracking-tight">Active Matrix</h3>
+            <div className="flex gap-4 font-mono text-[10px] uppercase tracking-widest bg-black/5 px-3 py-1 rounded-full">
               {(["active", "expired"] as const).map(tab => (
-                 <button key={tab} onClick={() => setActiveTab(tab)} className={`${activeTab === tab ? "text-black border-b border-black font-bold pb-1" : "text-black/40 hover:text-black"} transition-all`}>
+                 <button key={tab} onClick={() => setActiveTab(tab)} className={`${activeTab === tab ? "text-black font-bold" : "text-black/40 hover:text-black"} transition-all uppercase`}>
                    {tab}
                  </button>
               ))}
             </div>
           </div>
-          <div className="flex gap-4">
+          <div className="flex gap-4 items-center">
+             <span className="font-mono text-[10px] uppercase tracking-widest text-black/40">Timestamp Filter:</span>
              <input type="date" value={selectedDate} onChange={(e) => { setSelectedDate(e.target.value); setDateFilterEnabled(true); }}
                className="font-mono text-[10px] uppercase bg-transparent outline-none border-b border-black/20 focus:border-black text-black"
              />
@@ -257,7 +258,7 @@ export default function ContestsPage() {
 
         {/* Data List rows instead of cards */}
         <div className="w-full">
-          <div className="grid grid-cols-12 gap-4 py-3 font-mono text-[10px] uppercase tracking-widest text-black/40">
+          <div className="hidden md:grid grid-cols-12 gap-4 py-3 font-mono text-[10px] uppercase tracking-widest text-black/40 border-b border-black/5">
             <div className="col-span-1">ID</div>
             <div className="col-span-6">Market Protocol Question</div>
             <div className="col-span-2 text-right">Deadline</div>
@@ -277,24 +278,24 @@ export default function ContestsPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className="grid grid-cols-12 gap-4 py-6 border-b border-black/5 items-center transition-colors group"
+                  className="flex flex-col md:grid md:grid-cols-12 gap-4 py-6 md:py-8 border-b border-black/5 items-start md:items-center group"
                 >
-                  <div className="col-span-1 pl-2 font-mono text-[10px] text-black/50">
+                  <div className="md:col-span-1 pl-1 md:pl-2 font-mono text-[9px] md:text-[10px] text-black/50 shrink-0">
                     N° {contest.contest_id_onchain}
                   </div>
                   
-                  <div className="col-span-6 pr-8">
+                  <div className="md:col-span-6 md:pr-8 flex-1">
                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h4 className="font-display font-bold text-lg leading-snug group-hover:underline underline-offset-4">{contest.question}</h4>
+                        <h4 className="font-display font-bold text-base md:text-lg leading-snug group-hover:underline underline-offset-4">{contest.question}</h4>
                         {(contest.social_buzz_score ?? 0) > 0 && (
-                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-[#ccff00] text-black font-mono text-[9px] font-black uppercase tracking-tighter shrink-0 animate-pulse border border-black shadow-[2px_2px_0_0_#000]">
+                          <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-[#ccff00] text-black font-mono text-[8px] font-black uppercase tracking-tighter shrink-0 border border-black shadow-[1px_1px_0_0_#000]">
                             <TrendingUp className="w-2.5 h-2.5" />
                             Buzz {Math.round((contest.social_buzz_score ?? 0) * 100)}%
                           </div>
                         )}
                         {/* Seeding Indicator */}
                         {contest.votes && contest.votes.some(v => v.userId === 'AGENT_H_AMM_NODE') && (
-                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-black text-[#ccff00] font-mono text-[9px] font-black uppercase tracking-tighter shrink-0 border border-black">
+                          <div className="flex items-center gap-1.5 px-1.5 py-0.5 bg-black text-[#ccff00] font-mono text-[8px] font-black uppercase tracking-tighter shrink-0 border border-black">
                             Liquid Market
                           </div>
                         )}
@@ -401,26 +402,33 @@ export default function ContestsPage() {
                      )}
                   </div>
 
-                  <div className="col-span-2 text-right font-mono text-[11px] font-semibold text-black/60">
+                  <div className="hidden md:block md:col-span-2 text-right font-mono text-[11px] font-semibold text-black/60">
                     {new Date(contest.deadline).toLocaleDateString()}
                   </div>
+                  
+                  <div className="w-full md:col-span-3 flex flex-col md:flex-row justify-between md:justify-end items-start md:items-center gap-4 md:gap-3 mt-4 md:mt-0 pt-4 md:pt-0 border-t border-black/5 md:border-0 font-mono text-[10px]">
+                    <div className="md:hidden flex items-center gap-2 text-black/40">
+                       <span className="uppercase tracking-widest">Closes:</span>
+                       <span className="font-bold">{new Date(contest.deadline).toLocaleDateString()}</span>
+                    </div>
 
-                  <div className="col-span-3 flex justify-end items-center gap-3">
-                    {isOpen ? (
-                      <>
-                        <button onClick={() => handleQuickResolve(contest.id)} disabled={loading[contest.id]} className="font-mono bg-[#f0f0f0] text-black text-[10px] px-3 py-1 hover:bg-[#ccff00] transition-colors uppercase tracking-widest flex items-center gap-1">
-                          {loading[contest.id] ? "Resolving..." : <><Zap className="w-3 h-3"/> Auto</>}
-                        </button>
-                        <div className="flex text-[10px] font-mono font-bold tracking-widest">
-                           <button onClick={() => handleResolve(contest.id, true)} className="border border-black px-2 hover:bg-black hover:text-white transition">Y</button>
-                           <button onClick={() => handleResolve(contest.id, false)} className="border border-black border-l-0 px-2 hover:bg-black hover:text-white transition">N</button>
-                        </div>
-                      </>
-                    ) : (
-                      <span className="px-3 py-1 font-mono text-[9px] uppercase tracking-widest bg-[#f0f0f0] text-black">
-                        {contest.status}
-                      </span>
-                    )}
+                    <div className="flex items-center justify-between w-full md:w-auto gap-3">
+                      {isOpen ? (
+                        <>
+                          <button onClick={() => handleQuickResolve(contest.id)} disabled={loading[contest.id]} className="font-mono bg-[#f0f0f0] text-black text-[9px] md:text-[10px] px-3 md:px-3 py-2 md:py-1 hover:bg-[#ccff00] transition-colors uppercase tracking-widest flex items-center gap-1.5">
+                            {loading[contest.id] ? "Resolving..." : <><Zap className="w-3 h-3"/> Quick Resolve</>}
+                          </button>
+                          <div className="flex text-[10px] font-mono font-bold tracking-widest h-9 md:h-auto items-stretch">
+                             <button onClick={() => handleResolve(contest.id, true)} className="border border-black px-3 py-1 hover:bg-black hover:text-white transition flex items-center">Y</button>
+                             <button onClick={() => handleResolve(contest.id, false)} className="border border-black border-l-0 px-3 py-1 hover:bg-black hover:text-white transition flex items-center">N</button>
+                          </div>
+                        </>
+                      ) : (
+                        <span className="px-3 py-1 font-mono text-[9px] uppercase tracking-widest bg-[#f0f0f0] text-black border border-black/5">
+                          {contest.status}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </motion.div>
               )
@@ -439,10 +447,10 @@ export default function ContestsPage() {
           >
             <motion.div
               initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 12 }}
-              className="max-w-xl w-full bg-white border-2 border-black p-10 shadow-[12px_12px_0_0_#ccff00]"
+              className="max-w-xl w-full bg-white border-2 border-black p-6 md:p-10 shadow-[8px_8px_0_0_#ccff00] md:shadow-[12px_12px_0_0_#ccff00]"
             >
-              <div className="flex items-center justify-between border-b-[2px] border-black pb-4 mb-8">
-                <h2 className="font-display font-bold text-3xl">Deploy Contract</h2>
+              <div className="flex items-center justify-between border-b-[2px] border-black pb-4 mb-6 md:mb-8">
+                <h2 className="font-display font-bold text-2xl md:text-3xl">Deploy Contract</h2>
                 <button onClick={() => setShowCreateModal(false)} className="hover:rotate-90 transition-transform">
                   <XIcon className="w-6 h-6" />
                 </button>

@@ -122,14 +122,14 @@ export default function SuggestionsPage() {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1, transition: { staggerChildren: 0.1 } }}
-      className="max-w-6xl mx-auto space-y-24 pb-20"
+      className="max-w-6xl mx-auto space-y-16 md:space-y-24 pb-20"
     >
       {/* Header */}
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} className="space-y-6 max-w-3xl">
-        <h2 className="font-display font-bold text-6xl leading-[1.05] tracking-tight">
-          AI Network <br/> Suggestions.
+        <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-6xl leading-[1.1] md:leading-[1.05] tracking-tight">
+          AI Network <br className="hidden sm:block" /> Suggestions.
         </h2>
-        <p className="font-mono text-sm leading-relaxed text-black/60 max-w-xl">
+        <p className="font-mono text-[13px] md:text-sm leading-relaxed text-black/60 max-w-xl">
           Review and approve autonomous AI-generated predictions pending deployment to the prediction ledger.
         </p>
         
@@ -148,17 +148,19 @@ export default function SuggestionsPage() {
 
       {/* Main List */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-4">
-        <div className="flex items-end justify-between border-b-[2px] border-black pb-4 mb-4">
-          <div className="flex items-center gap-4">
-            <h3 className="font-display font-bold text-2xl tracking-tight">Pending Approval ({suggestions.length})</h3>
-            <button onClick={toggleSelectAll} className="font-mono text-[10px] uppercase tracking-widest text-[#111111] hover:text-black/50 transition-colors">
-              {selectedIds.size === suggestions.length ? "Deselect All" : "Select All"}
-            </button>
-            {selectedIds.size > 0 && (
-              <button onClick={handleDeleteSelected} disabled={deleting} className="font-mono text-[10px] uppercase tracking-widest text-red-500 hover:text-red-300">
-                Delete ({selectedIds.size})
+        <div className="flex flex-col md:flex-row md:items-end justify-between border-b-[2px] border-black pb-4 mb-6 gap-4">
+          <div className="flex flex-wrap items-center gap-3 md:gap-4">
+            <h3 className="font-display font-bold text-xl md:text-2xl tracking-tight">Pending Approval ({suggestions.length})</h3>
+            <div className="flex gap-3">
+              <button onClick={toggleSelectAll} className="font-mono text-[10px] uppercase tracking-widest text-[#111111] hover:text-black/50 transition-colors">
+                {selectedIds.size === suggestions.length ? "Deselect All" : "Select All"}
               </button>
-            )}
+              {selectedIds.size > 0 && (
+                <button onClick={handleDeleteSelected} disabled={deleting} className="font-mono text-[10px] uppercase tracking-widest text-red-500 hover:text-red-300">
+                  Delete ({selectedIds.size})
+                </button>
+              )}
+            </div>
           </div>
           <div className="flex gap-4">
             <button onClick={() => setSortOrder(sortOrder === "newest" ? "oldest" : "newest")} className="font-mono text-[10px] uppercase tracking-widest text-black/40 hover:text-black">
@@ -173,7 +175,7 @@ export default function SuggestionsPage() {
           <div className="py-20 text-center font-mono text-xs uppercase tracking-widest text-black/40">No suggestions pending. Fetch new to continue.</div>
         ) : (
           <div className="w-full">
-            <div className="grid grid-cols-12 gap-4 py-3 font-mono text-[10px] uppercase tracking-widest text-black/40">
+            <div className="hidden md:grid grid-cols-12 gap-4 py-3 font-mono text-[10px] uppercase tracking-widest text-black/40 border-b border-black/5">
               <div className="col-span-1">Sel</div>
               <div className="col-span-7">Proposed Market Event</div>
               <div className="col-span-2 text-right">Confidence</div>
@@ -187,41 +189,45 @@ export default function SuggestionsPage() {
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.05 }}
-                  className="grid grid-cols-12 gap-4 py-6 border-b border-black/5 items-center transition-colors group"
+                  className="flex flex-col md:grid md:grid-cols-12 gap-4 py-6 md:py-8 border-b border-black/5 items-start md:items-center group"
                 >
-                  <div className="col-span-1 pl-2">
+                  <div className="col-span-1 pl-1 md:pl-2 shrink-0 flex items-center h-full">
                     <input type="checkbox" checked={selectedIds.has(s.id)} onChange={() => toggleSelect(s.id)}
-                      className="appearance-none w-4 h-4 border border-black/20 checked:bg-black checked:border-black rounded-sm cursor-pointer transition-colors"
+                      className="appearance-none w-5 h-5 md:w-4 md:h-4 border border-black/20 checked:bg-black checked:border-black rounded-sm cursor-pointer transition-colors"
                     />
                   </div>
-                  <div className="col-span-7 pr-8">
+                  <div className="md:col-span-7 md:pr-8 flex-1">
                      <div className="flex flex-wrap items-center gap-2 mb-2">
-                        <h4 className="font-display font-bold text-lg leading-snug group-hover:underline">{s.yes_no_question}</h4>
+                        <h4 className="font-display font-bold text-base md:text-lg leading-snug group-hover:underline">{s.yes_no_question}</h4>
                         {s.social_buzz_score > 0 && (
-                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-[#ccff00] text-black font-mono text-[9px] font-black uppercase tracking-tighter border border-black shadow-[1px_1px_0_0_#000]">
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-[#ccff00] text-black font-mono text-[8px] font-black uppercase tracking-tighter border border-black shadow-[1px_1px_0_0_#000]">
                             Buzz {Math.round(s.social_buzz_score * 100)}%
                           </div>
                         )}
                      </div>
-                     <p className="font-mono text-[11px] text-black/50 leading-relaxed line-clamp-2 mb-2">
+                     <p className="font-mono text-[11px] md:text-[12px] text-black/50 leading-relaxed line-clamp-3 md:line-clamp-2 mb-3">
                        {s.resolution_criteria}
                      </p>
                      <div className="font-mono text-[9px] uppercase tracking-widest text-black/30">
                        Source: {s.headline.slice(0, 60)}...
                      </div>
                   </div>
-                  <div className="col-span-2 text-right font-mono text-xs font-semibold flex justify-end">
-                     <span className={`px-3 py-1 text-[9px] uppercase tracking-widest bg-[#f0f0f0] ${s.score_relevance > 0.8 ? "text-green-600" : "text-orange-500"}`}>
-                       {(s.score_relevance * 100).toFixed(0)}% REL
-                     </span>
-                  </div>
-                  <div className="col-span-2 flex justify-end gap-3">
-                    <button onClick={() => handleApprove(s.id)} className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center hover:bg-[#ccff00] hover:text-black transition-colors">
-                      <Check className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleReject(s.id)} className="w-8 h-8 rounded-full border border-black/10 hover:border-black/50 text-black/50 hover:text-black flex items-center justify-center transition-colors">
-                      <XIcon className="w-4 h-4" />
-                    </button>
+                  
+                  <div className="w-full md:col-span-4 flex items-center justify-between md:justify-end gap-3 md:gap-6 mt-4 md:mt-0 pt-4 md:pt-0 border-t border-black/5 md:border-0">
+                    <div className="font-mono text-xs font-semibold flex items-center gap-2">
+                       <span className={`px-2 md:px-3 py-1 text-[9px] uppercase tracking-widest bg-[#f0f0f0] ${s.score_relevance > 0.8 ? "text-green-600" : "text-orange-500"}`}>
+                         {(s.score_relevance * 100).toFixed(0)}% REL
+                       </span>
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleApprove(s.id)} className="px-5 py-2 md:w-8 md:h-8 md:p-0 rounded-full bg-black text-white flex items-center justify-center hover:bg-[#ccff00] hover:text-black transition-colors text-[10px] md:text-base font-bold uppercase tracking-widest md:normal-case">
+                        <span className="md:hidden">Approve</span>
+                        <Check className="hidden md:block w-4 h-4" />
+                      </button>
+                      <button onClick={() => handleReject(s.id)} className="w-8 h-8 rounded-full border border-black/10 hover:border-black/50 text-black/50 hover:text-black flex items-center justify-center transition-colors">
+                        <XIcon className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))}

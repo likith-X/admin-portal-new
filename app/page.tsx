@@ -25,18 +25,18 @@ export default function LuxuryDashboard() {
       variants={containerVars}
       initial="hidden"
       animate="show"
-      className="max-w-6xl mx-auto space-y-24 pb-20"
+      className="max-w-6xl mx-auto space-y-16 md:space-y-24 pb-20"
     >
       <motion.div variants={itemVars} className="space-y-6 max-w-3xl">
-        <h2 className="font-display font-bold text-6xl md:text-7xl leading-[1.05] tracking-tight">
-          Network State <br/> & Intelligence.
+        <h2 className="font-display font-bold text-4xl sm:text-5xl md:text-7xl leading-[1.1] md:leading-[1.05] tracking-tight">
+          Network State <br className="hidden sm:block" /> & Intelligence.
         </h2>
-        <p className="font-mono text-sm leading-relaxed text-black/60 max-w-xl">
+        <p className="font-mono text-[13px] md:text-sm leading-relaxed text-black/60 max-w-xl">
           Real-time performance metrics across all decentralized agents and active prediction markets. System is running at optimal synchronization.
         </p>
       </motion.div>
 
-      <motion.div variants={itemVars} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-12">
+      <motion.div variants={itemVars} className="grid grid-cols-2 md:grid-cols-4 gap-x-4 md:gap-x-8 gap-y-10 md:gap-y-12">
         <DataStat title="Total Value Locked" value="$8,495,200" trend="+14.5%" isPositive={true} />
         <DataStat title="Active Node Agents" value="1,248" trend="+5.2%" isPositive={true} />
         <DataStat title="Consensus Accuracy" value="99.98%" trend="+0.01%" isPositive={true} />
@@ -160,10 +160,10 @@ function MarketTrend({ asset, category, currentPrice, change, data }: { asset: s
 
 function DataStat({ title, value, trend, isPositive }: { title: string, value: string, trend: string, isPositive: boolean }) {
   return (
-    <div className="flex flex-col border-l border-black/10 pl-6 py-2 transition-all hover:border-black duration-500">
-      <div className="font-mono text-[10px] uppercase tracking-widest text-black/40 mb-3">{title}</div>
-      <div className="font-mono text-3xl tracking-tighter text-[#111111] mb-2">{value}</div>
-      <div className={`flex items-center gap-1.5 font-mono text-[11px] ${
+    <div className="flex flex-col border-l border-black/10 pl-4 md:pl-6 py-2 transition-all hover:border-black duration-500">
+      <div className="font-mono text-[9px] md:text-[10px] uppercase tracking-widest text-black/40 mb-2 md:mb-3">{title}</div>
+      <div className="font-mono text-xl md:text-3xl tracking-tighter text-[#111111] mb-1 md:mb-2">{value}</div>
+      <div className={`flex items-center gap-1.5 font-mono text-[10px] md:text-[11px] ${
         isPositive ? "text-black" : "text-black/50"
       }`}>
         {isPositive ? <ArrowUpRight className="w-3.5 h-3.5" /> : <ArrowDownRight className="w-3.5 h-3.5" />}
