@@ -48,3 +48,5 @@ status.txt
 /supabase/
 *.log
 .vscode/
+
+.vercel

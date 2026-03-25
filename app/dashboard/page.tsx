@@ -7,7 +7,7 @@ import Container from "@/app/components/ui/Container";
 import {
   Target, Clock, Lightbulb, CheckCircle2, Zap,
   Activity, AlertCircle, ArrowUpRight, Wallet, PlayCircle,
-  RefreshCcw
+  RefreshCcw, LucideIcon
 } from "lucide-react";
 import AnimatedCounter from "@/app/components/AnimatedCounter";
 
@@ -48,7 +48,7 @@ const stagger = {
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] as const } },
 };
 
 export default function DashboardPage() {
@@ -460,7 +460,7 @@ function MetricCard({
 }: {
   title: string;
   value: number;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   accentColor: string;
   status: "active" | "success" | "warning" | "neutral";
   loading: boolean;

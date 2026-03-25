@@ -29,7 +29,7 @@ export default function Dock() {
       <motion.div
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
+        transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] as const }}
         className="flex items-end gap-1.5 px-3 py-2.5 rounded-2xl"
         style={{
           background: 'rgba(13, 13, 25, 0.75)',

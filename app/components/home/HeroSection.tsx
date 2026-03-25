@@ -27,7 +27,7 @@ export default function HeroSection() {
                 <motion.div
                     initial={{ opacity: 0, y: -16 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.7, delay: 0.2, ease: [0.4, 0, 0.2, 1] }}
+                    transition={{ duration: 0.7, delay: 0.2, ease: [0.4, 0, 0.2, 1] as const }}
                     className="mb-8"
                 >
                     <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full" style={{
@@ -46,7 +46,7 @@ export default function HeroSection() {
                         <motion.span
                             initial={{ opacity: 0, y: 20 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] }}
+                            transition={{ duration: 0.8, ease: [0.4, 0, 0.2, 1] as const }}
                             className="block tracking-tight"
                             style={{
                                 background: 'linear-gradient(180deg, var(--primary-fixed), var(--primary-muted))',

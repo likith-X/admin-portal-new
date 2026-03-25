@@ -3,11 +3,11 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import Container from "@/app/components/ui/Container";
-import { User, Trophy, Activity, Target, Bell, Zap, Settings, ExternalLink } from "lucide-react";
+import { User, Trophy, Activity, Target, Bell, Zap, Settings, ExternalLink, LucideIcon } from "lucide-react";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] } },
+  visible: { opacity: 1, y: 0, transition: { duration: 0.45, ease: [0.4, 0, 0.2, 1] as const } },
 };
 
 export default function ProfilePage() {
@@ -126,7 +126,7 @@ export default function ProfilePage() {
 /* Sub-components */
 
 function StatCard({ icon: Icon, label, value, accentColor, progress }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   label: string; value: string | number;
   accentColor: string; progress: number;
 }) {
@@ -146,7 +146,7 @@ function StatCard({ icon: Icon, label, value, accentColor, progress }: {
 }
 
 function SettingToggle({ icon: Icon, iconColor, label, description, enabled }: {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   iconColor: string; label: string; description: string; enabled: boolean;
 }) {
   return (
